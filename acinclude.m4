@@ -190,6 +190,7 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 	pnat_enable=no
 	attrib_enable=no
 	tracer_enable=no
+	generichid_enable=no
 	tools_enable=yes
 	hidd_enable=no
 	pand_enable=no
@@ -227,6 +228,10 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 
 	AC_ARG_ENABLE(input, AC_HELP_STRING([--disable-input], [disable input plugin]), [
 		input_enable=${enableval}
+	])
+
+	AC_ARG_ENABLE(generichid, AC_HELP_STRING([--enable-generichid], [enable generichid plugin]), [
+		generichid_enable=${enableval}
 	])
 
 	AC_ARG_ENABLE(audio, AC_HELP_STRING([--disable-audio], [disable audio plugin]), [
@@ -360,6 +365,7 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 	AM_CONDITIONAL(GSTREAMER, test "${gstreamer_enable}" = "yes" && test "${gstreamer_found}" = "yes")
 	AM_CONDITIONAL(AUDIOPLUGIN, test "${audio_enable}" = "yes")
 	AM_CONDITIONAL(INPUTPLUGIN, test "${input_enable}" = "yes")
+	AM_CONDITIONAL(GENERICHIDPLUGIN, test "${generichid_enable}" = "yes")
 	AM_CONDITIONAL(SERIALPLUGIN, test "${serial_enable}" = "yes")
 	AM_CONDITIONAL(NETWORKPLUGIN, test "${network_enable}" = "yes")
 	AM_CONDITIONAL(SERVICEPLUGIN, test "${service_enable}" = "yes")
