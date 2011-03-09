@@ -977,6 +977,7 @@ static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_CTRL,
 				BT_IO_OPT_INVALID);
 
+	/* TODO: treat plug failed even with errors from cb */
 	if (err != NULL)
 		error("%s", err->message);
 
@@ -1247,7 +1248,7 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 		if (ret < 0)
 			goto failed;
 
-		dev->dst = dst;
+		bacpy(&dev->dst, &dst);
 
 	} else {
 		g_dbus_emit_signal(connection,  dev->input_path,
@@ -1345,6 +1346,7 @@ static int adapt_start(struct adapter_data *adapt)
 						BT_IO_OPT_INVALID);
 	if (!adapt->listen_intr) {
 		error("Failed to listen on interrupt channel");
+		/* TODO: fix this */
 		g_io_channel_unref(dev->ctrl);
 		dev->ctrl = NULL;
 		g_error_free(err);
