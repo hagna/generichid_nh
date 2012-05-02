@@ -186,8 +186,6 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 	service_enable=yes
 	health_enable=no
 	pnat_enable=no
-	attrib_enable=no
-	tracer_enable=no
 	generichid_enable=no
 	tools_enable=yes
 	hidd_enable=no
