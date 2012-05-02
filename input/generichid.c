@@ -47,7 +47,7 @@
 #include "plugin.h"
 #include "adapter.h"
 #include "error.h"
-#include "logging.h"
+#include "log.h"
 #include "glib-helper.h"
 #include "btio.h"
 #include "device.h"
@@ -127,7 +127,7 @@ struct btd_adapter {
 	GSList *disc_sessions;		/* Discovery sessions */
 	guint scheduler_id;		/* Scheduler handle */
 
-	struct hci_dev dev;		/* hci info */
+	struct hci_dev_info dev;		/* hci info */
 	gboolean pairable;		/* pairable state */
 
 	gboolean initialized;
@@ -416,7 +416,7 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 
 	adapt->sdp_record_handle = record->handle;
 
-	debug("HID service registered with record handle %x", record->handle);
+	btd_debug("HID service registered with record handle %x", record->handle);
 
 	return 0;
 }
@@ -870,7 +870,7 @@ static void interrupt_connect_cb(GIOChannel *chan, GError *conn_err,
 	/* Connect */
 	if (info->func != NULL) {
 		reg_interface = info->func;
-		debug("Registering device");
+		btd_debug("Registering device");
 
 		if ((*reg_interface)(adapt) < 0)
 			goto failed;
@@ -1123,7 +1123,7 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 	strcpy(addr, str);
 	str2ba(addr, &(dev->dst));
 
-	debug("Request connection to %s", addr);
+	btd_debug("Request connection to %s", addr);
 
 	adapter_get_address(adapt->adapter, &src);
 
@@ -1196,7 +1196,7 @@ static void register_interface(const char *path, struct adapter_data *adapt)
 		return;
 	}
 
-	debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
+	btd_debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
 
 }
 
@@ -1218,7 +1218,7 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 	struct device_data *dev = adapt->dev;
 
 	if (err)
-		debug("%s\n", err->message);
+		btd_debug("%s\n", err->message);
 
 	bt_io_get(chan, BT_IO_L2CAP, &gerr,
 			BT_IO_OPT_DEST_BDADDR, &dst,
@@ -1226,13 +1226,13 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 			BT_IO_OPT_INVALID);
 
 	if (gerr) {
-		debug("Error on PSM %d: %s\n", psm, gerr->message);
+		btd_debug("Error on PSM %d: %s\n", psm, gerr->message);
 		g_error_free(gerr);
 		g_io_channel_shutdown(chan, TRUE, NULL);
 		return;
 	}
 
-	debug("Accept on PSM %d\n", psm);
+	btd_debug("Accept on PSM %d\n", psm);
 
 	if (psm == 17) {
 		dev->ctrl = g_io_channel_ref(chan);
@@ -1305,18 +1305,18 @@ static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 			(bacmp(&(dev->dst), &dst) != 0 ||
 			dev->intr != NULL)) {
 
-		debug("Incoming request blocked due to existing input device");
+		btd_debug("Incoming request blocked due to existing input device");
 		g_io_channel_shutdown(chan, TRUE, NULL);
 		return;
 	}
 
-	debug("Incoming connection on PSM number %d", psm);
+	btd_debug("Incoming connection on PSM number %d", psm);
 
 	if (psm == 17)
 		adapt->pending = 1;
 
 	if (!bt_io_accept(chan, connect_cb, data, NULL, NULL))
-		debug("Can not accept connection on psm %d", psm);
+		btd_debug("Can not accept connection on psm %d", psm);
 }
 
 static int adapt_start(struct adapter_data *adapt)
@@ -1423,7 +1423,7 @@ static int ghid_probe(struct btd_adapter *adapter)
 	adapt->active = 0;
 
 	if (sdp_keyboard_service(adapt) < 0) {
-		debug("Adding HID SDP service failed");
+		btd_debug("Adding HID SDP service failed");
 		g_free(adapt);
 		return -1;
 	}
