@@ -183,6 +183,12 @@ builtin_sources += input/main.c \
 			input/fakehid.c input/fakehid.h
 endif
 
+if GENERICHIDPLUGIN
+builtin_modules += generichid
+builtin_sources += input/generichid.c
+
+endif
+
 if SERIALPLUGIN
 builtin_modules += serial
 builtin_sources += serial/main.c \
