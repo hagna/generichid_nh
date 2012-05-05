@@ -1067,6 +1067,8 @@ static int register_input_device(struct adapter_data *adapt)
 	initiate_keyboard(&dev->keyboard);
 	initiate_mouse(&dev->mouse);
 
+	btd_debug("input path is %s", dev->input_path);
+
 	if (g_dbus_register_interface(connection,
 					dev->input_path,
 					GENERIC_INPUT_DEVICE,

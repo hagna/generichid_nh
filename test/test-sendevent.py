@@ -8,15 +8,6 @@ import dbus.service
 import dbus.mainloop.glib
 
 
-class Test(object):
-
-	def __init__(self, inhid):
-		self.inhid = inhid
-
-	def put(self, msg):
-		print msg
-		#self.inhid.SendEvent(dbus.Byte(0), dbus.UInt16(0), dbus.Byte(0))
-
 
 def main(argv):
 	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -51,19 +42,19 @@ def main(argv):
 		"/org/bluez/input/hci0/device1"),
 		"org.bluez.GenericHIDInput")
 
-	t = Test(in_device)
 
-	in_device.connect_to_signal("Reconnected", lambda :
-		t.put("reconnected"))
+	in_device.connect_to_signal("Reconnected", reconnected)
 	in_device.connect_to_signal("Disconnected", disconnected)
 
 
 
-	adapter.connect_to_signal("IncomingConnection", lambda :
-			t.put("IncomingConnection"))
+
+	adapter.connect_to_signal("IncomingConnection",
+			incoming_connection)
 	adapter.connect_to_signal("DeviceReleased", device_released)
 
 
+	in_device.SendEvent(dbus.Byte(0), dbus.UInt16(0), dbus.Byte(0))
 
 	mainloop = gobject.MainLoop()
 
