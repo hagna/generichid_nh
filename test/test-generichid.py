@@ -64,7 +64,7 @@ def main(argv):
 	adapter.connect_to_signal("DeviceReleased", device_released)
 
 
-
+	print "loop"
 	mainloop = gobject.MainLoop()
 
 	mainloop.run()

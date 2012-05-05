@@ -54,7 +54,8 @@ def main(argv):
 	adapter.connect_to_signal("DeviceReleased", device_released)
 
 
-	in_device.SendEvent(dbus.Byte(0), dbus.UInt16(0), dbus.Byte(0))
+	in_device.SendEvent(dbus.Byte(1),
+					dbus.UInt16(i), dbus.Byte(j))
 
 	mainloop = gobject.MainLoop()
 
