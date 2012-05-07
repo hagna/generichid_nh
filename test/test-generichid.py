@@ -7,6 +7,7 @@ import dbus
 import dbus.service
 import dbus.mainloop.glib
 import time
+import random
 
 
 class Demo(object):
@@ -26,19 +27,23 @@ class Demo(object):
                                         lambda : self.connectionLost("Disconnected"))
 
 
-    def sendKey(self, k):
-        print "sendKey %r" % k
-        self.hidinput.SendEvent(dbus.Byte(1), dbus.Int16(k), dbus.Byte(1))
-        time.sleep(3)
-        self.hidinput.SendEvent(dbus.Byte(1), dbus.Int16(k), dbus.Byte(0))
+    def sendKey(self, k, l):
+        print "SendEvent(1, %r, %r)" % (k, l)
+        self.hidinput.SendEvent(dbus.Byte(1), dbus.UInt16(k), dbus.Byte(l))
 
 
     def connectionMade(self, reason):
         print "connectionMade %r" % reason
         #v = self.hidinput.GetProperties()
         #print "Properties are %r" % v
-        for i in xrange(55, 100):
-            self.sendKey(i << 8)
+
+        # see /usr/include/linux/input.h for more 
+        c = [[46, 1], [46, 0],
+              [30, 1], [30, 0]]
+        while c:
+            i, j = c.pop(0)
+            self.sendKey(i, j)
+            time.sleep(2)
 
 
     def connectionLost(self, reason):
