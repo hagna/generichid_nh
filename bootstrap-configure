@@ -23,6 +23,7 @@ fi
 		--enable-dfutool \
 		--enable-hid2hci \
 		--enable-hidd \
+		--enable-generichid \
 		--enable-pand \
 		--enable-dund \
 		--enable-test \

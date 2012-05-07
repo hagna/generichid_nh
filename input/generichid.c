@@ -1158,6 +1158,8 @@ static DBusMessage *activate(DBusConnection *conn, DBusMessage *msg,
 
 	change_device_class(adapt);
 
+    btd_debug("Changed device class to keyboard");
+
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
@@ -1204,7 +1206,7 @@ static void register_interface(const char *path, struct adapter_data *adapt)
 
 static void unregister_interface(const char *path)
 {
-	DBG("path %s", path);
+	btd_debug("path %s", path);
 
 	g_dbus_unregister_interface(connection, path, GENERIC_HID_INTERFACE);
 }

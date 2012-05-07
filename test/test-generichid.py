@@ -6,69 +6,80 @@ import sys
 import dbus
 import dbus.service
 import dbus.mainloop.glib
+import time
 
 
-class Test(object):
+class Demo(object):
+    
+    
+    def __init__(self, hid, hidinput):
+        self.hid = hid
+        self.hidinput = hidinput
 
-	def __init__(self, inhid):
-		self.inhid = inhid
+        self.hid.connect_to_signal("IncomingConnection",
+                                    lambda : self.connectionMade("IncomingConnection"))
+        self.hid.connect_to_signal("DeviceReleased",
+                                    lambda : self.connectionLost("DeviceReleased"))
+        self.hidinput.connect_to_signal("Reconnected", 
+                                        lambda : self.connectionMade("Reconnected"))
+        self.hidinput.connect_to_signal("Disconnected",
+                                        lambda : self.connectionLost("Disconnected"))
 
-	def put(self, msg):
-		print msg
-		#self.inhid.SendEvent(dbus.Byte(0), dbus.UInt16(0), dbus.Byte(0))
+
+    def sendKey(self, k):
+        print "sendKey %r" % k
+        self.hidinput.SendEvent(dbus.Byte(1), dbus.Int16(k), dbus.Byte(1))
+        time.sleep(3)
+        self.hidinput.SendEvent(dbus.Byte(1), dbus.Int16(k), dbus.Byte(0))
+
+
+    def connectionMade(self, reason):
+        print "connectionMade %r" % reason
+        #v = self.hidinput.GetProperties()
+        #print "Properties are %r" % v
+        for i in xrange(55, 100):
+            self.sendKey(i << 8)
+
+
+    def connectionLost(self, reason):
+        print "connectionLost %r" % reason
+
 
 
 def main(argv):
-	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
-	bus = dbus.SystemBus()
-	
-	manager = dbus.Interface(bus.get_object("org.bluez", "/"),
-							"org.bluez.Manager")
-	
+    bus = dbus.SystemBus()
+    
+    manager = dbus.Interface(bus.get_object("org.bluez", "/"),
+                            "org.bluez.Manager")
+    
+    # export BTADAPTER=`dbus-send --system --dest=org.bluez --print-reply / org.bluez.Manager.DefaultAdapter | tail -1 | sed 's/^.*"\(.*\)".*$/\1/'`
+    path = manager.DefaultAdapter()
 
-	# export BTADAPTER=`dbus-send --system --dest=org.bluez --print-reply / org.bluez.Manager.DefaultAdapter | tail -1 | sed 's/^.*"\(.*\)".*$/\1/'`
-	path = manager.DefaultAdapter()
+    # dbus-send --system --dest=org.bluez --print-reply $BTADAPTER org.freedesktop.DBus.Introspectable.Introspect
 
-	# dbus-send --system --dest=org.bluez --print-reply $BTADAPTER org.freedesktop.DBus.Introspectable.Introspect
+    adapter = dbus.Interface(bus.get_object("org.bluez", path), "org.bluez.GenericHID")
 
-	adapter = dbus.Interface(bus.get_object("org.bluez", path),
-							"org.bluez.GenericHID")
-	def incoming_connection(*args, **kw):
-		print "incoming connection %r %r" % (args, kw)
+    adapter.Activate()
+    print "Acitvated keyboard device class"
 
+    in_device = dbus.Interface(bus.get_object("org.bluez",
+                                              "/org/bluez/input/hci0/device1"),
+                              "org.bluez.GenericHIDInput")
 
-	def device_released(*args, **kw):
-		print "device released %r %r" % (args, kw)
+    d = Demo(adapter, in_device)
+    if len( argv ) > 1:
+        d.connectionMade(argv[1])
 
-	def reconnected(*args, **kw):
-		print "reconnected %r %r" % (args, kw)
+    mainloop = gobject.MainLoop()
 
-	def disconnected(*args, **kw):
-		print "disconnected %r %r" % (args, kw)
-
-	in_device = dbus.Interface(bus.get_object("org.bluez",
-		"/org/bluez/input/hci0/device1"),
-		"org.bluez.GenericHIDInput")
-
-	t = Test(in_device)
-
-	in_device.connect_to_signal("Reconnected", lambda :
-		t.put("reconnected"))
-	in_device.connect_to_signal("Disconnected", disconnected)
-
-
-
-	adapter.connect_to_signal("IncomingConnection", lambda :
-			t.put("IncomingConnection"))
-	adapter.connect_to_signal("DeviceReleased", device_released)
-
-
-	print "loop"
-	mainloop = gobject.MainLoop()
-
-	mainloop.run()
+    try:
+        mainloop.run()
+    finally:
+        adapter.Deactivate()
+        print "Deactivated keyboard device class"
 
 
 if __name__ == '__main__':
-	main(sys.argv)
+    main(sys.argv)
