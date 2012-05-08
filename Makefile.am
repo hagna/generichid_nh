@@ -395,7 +395,7 @@ include Makefile.tools
 if DATAFILES
 rulesdir = @UDEV_DIR@/rules.d
 
-udev_files = scripts/bluetooth.rules
+udev_files =
 
 if HID2HCI
 udev_files += scripts/bluetooth-hid2hci.rules
@@ -414,8 +414,7 @@ endif
 
 CLEANFILES += $(rules_DATA)
 
-EXTRA_DIST += scripts/bluetooth.rules \
-		scripts/bluetooth-hid2hci.rules scripts/bluetooth-serial.rules
+EXTRA_DIST += scripts/bluetooth-hid2hci.rules scripts/bluetooth-serial.rules
 
 EXTRA_DIST += doc/manager-api.txt \
 		doc/adapter-api.txt doc/device-api.txt \
