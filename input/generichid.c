@@ -836,30 +836,25 @@ static DBusMessage *get_properties(DBusConnection *conn,
 static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
 {
-    unsigned char buf[10];
+    unsigned char b;
+    unsigned char ok;
 	struct device_data *dev = data;
     int fd;
     int outfd;
     int err;
-    buf[1] = 0;
-    buf[2] = 0;
-    buf[3] = 0x00;
+    b = 0;
+    ok = 0;
 
-    btd_debug("Called set_protocol_listener");
     fd = g_io_channel_unix_get_fd(chan);
-
-    read(fd, buf, 1);
-    btd_debug("read data %x", buf[0]);
-    if (buf[0] == 0x71) {
-        // set_protocol(report)
-        btd_debug("read set_protocol(report)");
+    read(fd, &b, 1);
+    if ((b == 0x71) || (b == 0x90)) {
+        // set_protocol(report) or set_idle
         outfd = g_io_channel_unix_get_fd(dev->intr);
-        err = write(outfd, &buf[3], 1);
-        btd_debug("wrote byte 0 to outfd");
+        err = write(outfd, &ok, 1);
         if (err < 0)
-            btd_debug("some error writing %d", err);
+            btd_debug("error writing %d", err);
     }
-	return FALSE;
+	return TRUE;
 }
 
 
