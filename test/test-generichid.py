@@ -28,17 +28,16 @@ class Demo(object):
 
     def sendKey(self, k):
         print "sendKey %r" % k
-        self.hidinput.SendEvent(dbus.Byte(1), dbus.Int16(k), dbus.Byte(1))
+        self.hidinput.SendEvent(dbus.Byte(1), dbus.UInt16(k), dbus.Byte(1))
         time.sleep(3)
-        self.hidinput.SendEvent(dbus.Byte(1), dbus.Int16(k), dbus.Byte(0))
+        self.hidinput.SendEvent(dbus.Byte(1), dbus.UInt16(k), dbus.Byte(0))
 
 
     def connectionMade(self, reason):
         print "connectionMade %r" % reason
         #v = self.hidinput.GetProperties()
         #print "Properties are %r" % v
-        for i in xrange(55, 100):
-            self.sendKey(i << 8)
+        self.sendKey(int(reason));
 
 
     def connectionLost(self, reason):
