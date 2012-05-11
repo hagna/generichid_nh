@@ -832,6 +832,37 @@ static DBusMessage *get_properties(DBusConnection *conn,
 	return not_implemented(msg);
 }
 
+
+static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
+					gpointer data)
+{
+    unsigned char buf[10];
+	struct device_data *dev = data;
+    int fd;
+    int outfd;
+    int err;
+    buf[1] = 0;
+    buf[2] = 0;
+    buf[3] = 0x00;
+
+    btd_debug("Called set_protocol_listener");
+    fd = g_io_channel_unix_get_fd(chan);
+
+    read(fd, buf, 1);
+    btd_debug("read data %x", buf[0]);
+    if (buf[0] == 0x71) {
+        // set_protocol(report)
+        btd_debug("read set_protocol(report)");
+        outfd = g_io_channel_unix_get_fd(dev->intr);
+        err = write(outfd, &buf[3], 1);
+        btd_debug("wrote byte 0 to outfd");
+        if (err < 0)
+            btd_debug("some error writing %d", err);
+    }
+	return FALSE;
+}
+
+
 static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
 {
@@ -850,6 +881,7 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 	g_dbus_emit_signal(connection,  dev->input_path,
 				GENERIC_INPUT_DEVICE, "Disconnected",
 				DBUS_TYPE_INVALID);
+    btd_debug("Channel listener");
 	return FALSE;
 }
 
@@ -1262,6 +1294,8 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 
 	w = g_io_add_watch(dev->intr, G_IO_HUP | G_IO_ERR,
 				channel_listener, dev);
+    g_io_add_watch(dev->ctrl, G_IO_IN, set_protocol_listener, dev);
+    btd_debug("Added watch in connect_cb to set_protocol_listener");
 	dev->intr_watch = w;
 	adapt->pending = 0;
 
