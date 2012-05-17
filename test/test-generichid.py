@@ -31,12 +31,10 @@ class Demo(object):
         print "SendEvent(1, %r, %r)" % (k, l)
         self.hidinput.SendEvent(dbus.Byte(1), dbus.UInt16(k), dbus.Byte(l))
 
-
     def connectionMade(self, reason):
         print "connectionMade %r" % reason
         #v = self.hidinput.GetProperties()
         #print "Properties are %r" % v
-
         # see /usr/include/linux/input.h for more 
         c = [[46, 1], [46, 0],
               [30, 1], [30, 0]]
@@ -44,6 +42,7 @@ class Demo(object):
             i, j = c.pop(0)
             self.sendKey(i, j)
             time.sleep(2)
+        self.sendKey(int(reason));
 
 
     def connectionLost(self, reason):

@@ -832,6 +832,32 @@ static DBusMessage *get_properties(DBusConnection *conn,
 	return not_implemented(msg);
 }
 
+
+static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
+					gpointer data)
+{
+    unsigned char b;
+    unsigned char ok;
+	struct device_data *dev = data;
+    int fd;
+    int outfd;
+    int err;
+    b = 0;
+    ok = 0;
+
+    fd = g_io_channel_unix_get_fd(chan);
+    read(fd, &b, 1);
+    if ((b == 0x71) || (b == 0x90)) {
+        // set_protocol(report) or set_idle
+        outfd = g_io_channel_unix_get_fd(dev->intr);
+        err = write(outfd, &ok, 1);
+        if (err < 0)
+            btd_debug("error writing %d", err);
+    }
+	return TRUE;
+}
+
+
 static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
 {
@@ -850,6 +876,7 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 	g_dbus_emit_signal(connection,  dev->input_path,
 				GENERIC_INPUT_DEVICE, "Disconnected",
 				DBUS_TYPE_INVALID);
+    btd_debug("Channel listener");
 	return FALSE;
 }
 
@@ -1262,6 +1289,8 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 
 	w = g_io_add_watch(dev->intr, G_IO_HUP | G_IO_ERR,
 				channel_listener, dev);
+    g_io_add_watch(dev->ctrl, G_IO_IN, set_protocol_listener, dev);
+    btd_debug("Added watch in connect_cb to set_protocol_listener");
 	dev->intr_watch = w;
 	adapt->pending = 0;
 
