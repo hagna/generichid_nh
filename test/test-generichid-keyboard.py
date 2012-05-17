@@ -1084,10 +1084,16 @@ def main(argv):
                                               "/org/bluez/input/hci0/device1")                                              ,"org.bluez.GenericHIDInput")
 
     d = Demo(adapter, in_device)
-    for dev in get_devices():
-        print(dev)
+    devices = get_devices()
+    for i, dev in enumerate(devices):
+        print("%d %s" % (i, dev))
 
-    e = EventDevice("/dev/input/event0")
+    print("\n")
+    i = raw_input("which device do you want to try? [0]")
+    if not i:
+        i = 0
+    i = int(i)
+    e = devices[i]
     while 1:
         try:
             for i in e.readall():
