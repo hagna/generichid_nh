@@ -1062,7 +1062,7 @@ static const GDBusSignalTable ghid_input_device_signals[] = {
 
 static const GDBusMethodTable ghid_input_device_methods[] = {
 	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, send_event) },
-	{ GDBUS_METHOD("GetProperties",	NULL, GDBUS_ARGS({"properties", "a{sv}"},	get_properties) },
+	{ GDBUS_METHOD("GetProperties",	NULL, GDBUS_ARGS({"properties", "a{sv}"}),	get_properties) },
 	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
 	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device)	},
 	{}
@@ -1212,7 +1212,7 @@ static const GDBusSignalTable ghid_adapter_signals[] = {
 
 static const GDBusMethodTable ghid_adapter_methods[] = {
 	{ GDBUS_METHOD("Activate", NULL, NULL,	activate) },
-	{ GDBUS_METHOD("Deactivate", NULL, NULL, deactivate },
+	{ GDBUS_METHOD("Deactivate", NULL, NULL, deactivate) },
 	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
 	{ }
 };
