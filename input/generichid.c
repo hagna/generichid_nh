@@ -846,13 +846,17 @@ static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
     ok = 0;
 
     fd = g_io_channel_unix_get_fd(chan);
-    read(fd, &b, 1);
+    err = read(fd, &b, 1);
+    if (err < 0)
+        error("Error %d: failed to read set_protocol/set_idle", err);
     if ((b == 0x71) || (b == 0x90)) {
         // set_protocol(report) or set_idle
         outfd = g_io_channel_unix_get_fd(dev->intr);
         err = write(outfd, &ok, 1);
         if (err < 0)
-            btd_debug("error writing %d", err);
+            error("Error %d: failed to acknowledge set_protocol/set_idle", err);
+    } else {
+        btd_debug("possibly discarding important protocol traffic %x", b);
     }
 	return TRUE;
 }
