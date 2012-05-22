@@ -1054,17 +1054,17 @@ static DBusMessage *disconnect_device(DBusConnection *conn, DBusMessage *msg,
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
-static GDBusSignalTable ghid_input_device_signals[] = {
-	{ "Reconnected",	""		},
-	{ "Disconnected",	""		},
+static const GDBusSignalTable ghid_input_device_signals[] = {
+	{ GDBUS_SIGNAL("Reconnected", NULL)	},
+	{ GDBUS_SIGNAL("Disconnected", NULL) },
 	{ }
 };
 
-static GDBusMethodTable ghid_input_device_methods[] = {
-	{ "SendEvent",		"yqy",	"",		send_event		},
-	{ "GetProperties",	"",	"a{sv}",	get_properties		},
-	{ "Reconnect",		"",	"",		reconnect_device	},
-	{ "Disconnect",		"",	"",		disconnect_device	},
+static const GDBusMethodTable ghid_input_device_methods[] = {
+	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, send_event) },
+	{ GDBUS_METHOD("GetProperties",	NULL, GDBUS_ARGS({"properties", "a{sv}"},	get_properties) },
+	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
+	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device)	},
 	{}
 };
 
@@ -1204,16 +1204,16 @@ static DBusMessage *deactivate(DBusConnection *conn, DBusMessage *msg,
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
-static GDBusSignalTable ghid_adapter_signals[] = {
-	{ "IncomingConnection",	""		},
-	{ "DeviceReleased",	""		},
+static const GDBusSignalTable ghid_adapter_signals[] = {
+	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
+	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
 	{ }
 };
 
-static GDBusMethodTable ghid_adapter_methods[] = {
-	{ "Activate",		"",	"",	activate		},
-	{ "Deactivate",		"",	"",	deactivate		},
-	{ "Connect",		"s",	"",	connect_device		},
+static const GDBusMethodTable ghid_adapter_methods[] = {
+	{ GDBUS_METHOD("Activate", NULL, NULL,	activate) },
+	{ GDBUS_METHOD("Deactivate", NULL, NULL, deactivate },
+	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
 	{ }
 };
 
