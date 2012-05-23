@@ -100,50 +100,50 @@ static const unsigned char keycode2hidp[256] = {
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 		};
 
-struct btd_adapter {
-	uint16_t dev_id;
-	int up;
-	char *path;			/* adapter object path */
-	bdaddr_t bdaddr;		/* adapter Bluetooth Address */
-	guint discov_timeout_id;	/* discoverable timeout id */
-	uint32_t discov_timeout;	/* discoverable time(sec) */
-	guint pairable_timeout_id;	/* pairable timeout id */
-	uint32_t pairable_timeout;	/* pairable time(sec) */
-	uint8_t scan_mode;		/* scan mode: SCAN_DISABLED, SCAN_PAGE,
-					 * SCAN_INQUIRY */
-	uint8_t mode;			/* off, connectable, discoverable,
-					 * limited */
-	uint8_t global_mode;		/* last valid global mode */
-	int state;			/* standard inq, periodic inq, name
-					 * resloving */
-	GSList *found_devices;
-	GSList *oor_devices;		/* out of range device list */
-	DBusMessage *discovery_cancel;	/* discovery cancel message request */
-	GSList *passkey_agents;
-	struct agent *agent;		/* For the new API */
-	GSList *connections;		/* Connected devices */
-	GSList *devices;		/* Devices structure pointers */
-	GSList *mode_sessions;		/* Request Mode sessions */
-	GSList *disc_sessions;		/* Discovery sessions */
-	guint scheduler_id;		/* Scheduler handle */
-
-	struct hci_dev_info dev;		/* hci info */
-	gboolean pairable;		/* pairable state */
-
-	gboolean initialized;
-	gboolean already_up;		/* adapter was already up on init */
-
-	gboolean off_requested;		/* DEVDOWN ioctl was called */
-
-	uint32_t current_cod;		/* Adapter's current class */
-	uint32_t pending_cod;
-	uint32_t wanted_cod;		/* CoD cache */
-
-	gboolean cache_enable;
-
-	gint ref;
-};
-
+//struct btd_adapter {
+//	uint16_t dev_id;
+//	int up;
+//	char *path;			/* adapter object path */
+//	bdaddr_t bdaddr;		/* adapter Bluetooth Address */
+//	guint discov_timeout_id;	/* discoverable timeout id */
+//	uint32_t discov_timeout;	/* discoverable time(sec) */
+//	guint pairable_timeout_id;	/* pairable timeout id */
+//	uint32_t pairable_timeout;	/* pairable time(sec) */
+//	uint8_t scan_mode;		/* scan mode: SCAN_DISABLED, SCAN_PAGE,
+//					 * SCAN_INQUIRY */
+//	uint8_t mode;			/* off, connectable, discoverable,
+//					 * limited */
+//	uint8_t global_mode;		/* last valid global mode */
+//	int state;			/* standard inq, periodic inq, name
+//					 * resloving */
+//	GSList *found_devices;
+//	GSList *oor_devices;		/* out of range device list */
+//	DBusMessage *discovery_cancel;	/* discovery cancel message request */
+//	GSList *passkey_agents;
+//	struct agent *agent;		/* For the new API */
+//	GSList *connections;		/* Connected devices */
+//	GSList *devices;		/* Devices structure pointers */
+//	GSList *mode_sessions;		/* Request Mode sessions */
+//	GSList *disc_sessions;		/* Discovery sessions */
+//	guint scheduler_id;		/* Scheduler handle */
+//
+//	struct hci_dev_info dev;		/* hci info */
+//	gboolean pairable;		/* pairable state */
+//
+//	gboolean initialized;
+//	gboolean already_up;		/* adapter was already up on init */
+//
+//	gboolean off_requested;		/* DEVDOWN ioctl was called */
+//
+//	uint32_t current_cod;		/* Adapter's current class */
+//	uint32_t pending_cod;
+//	uint32_t wanted_cod;		/* CoD cache */
+//
+//	gboolean cache_enable;
+//
+//	gint ref;
+//};
+//
 struct keyboard_state {
 	unsigned char value[HIDP_KEYB_SIZE];
 	unsigned char last_value;
@@ -187,8 +187,7 @@ static void change_device_class(struct adapter_data *adapt)
 {
 	if (adapt->active != 0)
 		return;
-
-	adapt->original_cod = adapt->adapter->current_cod;
+	//adapt->original_cod = adapt->adapter->current_cod;
 	btd_adapter_set_class(adapt->adapter, KEYB_MAJOR, KEYB_MINOR);
 	adapt->active = 1;
 }
@@ -1437,8 +1436,11 @@ static gint adapter_cmp(gconstpointer con, gconstpointer user_data)
 	const struct adapter_data *adapt = con;
 	const struct btd_adapter *adapter = user_data;
 
-	return memcmp(adapter, adapt->adapter,
-			sizeof(struct btd_adapter));
+    return (adapter == adapt->adapter); 
+    // why would we have multiple copies of the adapter struct for the same adapter
+	
+    /*return memcmp(adapter, adapt->adapter,
+			sizeof(struct btd_adapter));*/
 }
 
 static int ghid_probe(struct btd_adapter *adapter)
