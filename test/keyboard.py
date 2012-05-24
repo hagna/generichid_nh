@@ -1080,8 +1080,8 @@ def main(argv):
     adapter.Activate()
     print( "Acitvated keyboard device class")
 
-    in_device = dbus.Interface(bus.get_object("org.bluez",
-                                              "/org/bluez/input/hci0/device1")                                              ,"org.bluez.GenericHIDInput")
+    in_device = dbus.Interface(bus.get_object("org.bluez","/org/bluez/input/hci0/device1"),"org.bluez.GenericHIDInput")
+
 
     d = Demo(adapter, in_device)
     devices = get_devices()
