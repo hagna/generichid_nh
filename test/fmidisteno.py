@@ -1,3 +1,4 @@
+# vim:ts=4:sw=4:softtabstop=4:smarttab:expandtab
 import gobject
 
 import sys
@@ -35,6 +36,7 @@ class Demo(object):
     def sendKey(self, a, b, c):
         print( "sendKey %r %r %r" % (a, b, c))
         self.hidinput.SendEvent(dbus.Byte(a), dbus.UInt16(b), dbus.Byte(c))
+
 
 
     def connectionMade(self, reason):
@@ -131,7 +133,6 @@ class Statefull:
         now = time.time()
         if (now - self.lastStrokeReceived) > self._t:
             if self.buf:
-                print self.buf
                 self.buf = []
 
     def strokeReceived(self, p):
@@ -166,7 +167,6 @@ def tick(agent, *args):
         now = time.time()
         if (now - lastStroke) > _t:
             if buf:
-                print buf
                 res['buf'] = []
     return res
 
@@ -176,33 +176,26 @@ def decoder(s):
 
 
 def keyUp(agent, event, timestamp):
-    print "keyUp", agent
     res = agent.copy()
     sbuf = res.setdefault('sbuf', [])
     keydownbuffer = res.setdefault('keydownbuffer', [])
-    maxtime = res.setdefault('maxtime', timestamp)
-    threshold = 3
-    print "timestamp", timestamp
-    print "lastkeyup maxtime", maxtime
-    print "diff is ", timestamp - maxtime
-    if timestamp - maxtime > threshold:
-        print "last keyup %r was more than current timestamp %r" % (maxtime, timestamp)
-        print "clearing sbuf because of elapsed threshold"
-        res['sbuf'] = []
-    
-    res['maxtime'] = timestamp
-    res['sbuf'].append(event)
+    threshold = 0.5
+    newsbuf = []
+    for i in res['sbuf']:
+        ts, e = i
+        if timestamp - ts < threshold:
+            newsbuf.append((ts, e))
+    res['sbuf'] = newsbuf
+    res['sbuf'].append((timestamp, event))
     if event in keydownbuffer:
         keydownbuffer.remove(event)
     if keydownbuffer == []: # all keys are up
-        decoder(tuple(res['sbuf']))
+        decoder(tuple([e[1] for e in res['sbuf']]))
         res['sbuf'] = []
-        print "clearing sbuf"
     return res
 
 
 def keyDown(agent, event, timestamp):
-    print "keyDown", agent
     res = agent.copy()
     sbuf = res.setdefault('sbuf', [])
     keydownbuffer = res.setdefault('keydownbuffer', [])
@@ -279,8 +272,11 @@ def input_main(device_id = None):
             if e.type in [QUIT]:
                 print (e)
             if e.type in [KEYDOWN]:
+                steno = send(steno, keyDown, e.key, time.time())
                 if e.key in [K_ESCAPE]:
                     going = False
+            if e.type in [KEYUP]:
+                steno = send(steno, keyUp, e.key, time.time())
 
         if mi.poll():
             midi_events = mi.read(10)
