@@ -139,7 +139,7 @@ struct user_data {
 	func_ptr func;
 };
 
-static void change_device_class(struct adapter_data *adapt)
+/*static void change_device_class(struct adapter_data *adapt)
 {
 	if (adapt->active != 0)
 		return;
@@ -160,7 +160,7 @@ static void restore_device_class(struct adapter_data *adapt)
 	btd_adapter_set_class(adapt->adapter, major, minor);
 	adapt->active = 0;
 }
-
+*/
 static void add_lang_attr(sdp_record_t *r)
 {
 	sdp_lang_attr_t base_lang;
@@ -1137,6 +1137,7 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 }
 
 
+/*
 static DBusMessage *activate(DBusConnection *conn, DBusMessage *msg,
 					void *data)
 {
@@ -1162,6 +1163,7 @@ static DBusMessage *deactivate(DBusConnection *conn, DBusMessage *msg,
 
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
+*/
 
 static const GDBusSignalTable ghid_adapter_signals[] = {
 	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
@@ -1170,8 +1172,8 @@ static const GDBusSignalTable ghid_adapter_signals[] = {
 };
 
 static const GDBusMethodTable ghid_adapter_methods[] = {
-	{ GDBUS_METHOD("Activate", NULL, NULL,	activate) },
-	{ GDBUS_METHOD("Deactivate", NULL, NULL, deactivate) },
+	//{ GDBUS_METHOD("Activate", NULL, NULL,	activate) },
+	//{ GDBUS_METHOD("Deactivate", NULL, NULL, deactivate) },
 	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
 	{ }
 };
@@ -1448,8 +1450,6 @@ static void ghid_remove(struct btd_adapter *adapter)
 	dev = adapt->dev;
 
 	adapters = g_slist_remove(adapters, adapt);
-
-	restore_device_class(adapt);
 
 	if (dev->input_path != NULL) {
 		g_dbus_unregister_interface(connection,
