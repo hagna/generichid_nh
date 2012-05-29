@@ -158,6 +158,83 @@ def send(agent, fn, *args):
     return fn(agent, *args)
 
 
+def sendphon(agent):
+    res = agent.copy()
+    buf = res['buf']
+    # keyboard macro language is the tuple of arguments to SendEvent
+    # but for the simple case it's just one argument
+    # for the slightly more complex case it is two
+    # but three is fine too
+    #
+    def A(*a):
+        res = []
+        for i in a:
+            res += [(i, 1)]
+            res += [(i, 0)]
+        return res
+
+    def B(*a):
+        res = []
+        res += [(0x36, 1)]
+        res += A(*a)
+        res += [(0x36, 0)]
+        return res
+
+
+    keymap = res.setdefault('keymap', {'D': B(0x20),  
+                                       'n': A(0x31),
+                                       't': A(0x14),
+                                       'r': A(0x13),
+                                       's': A(0x1f),
+                                       'd': A(0x20),
+                                       'l': A(0x26),
+                                       'z': A(0x2c),
+                                       'm': A(0x32),
+                                       'k': A(0x25),
+                                       'v': A(0x2f),
+                                       'w': A(0x11),
+                                       'p': A(0x19),
+                                       'f': A(0x21),
+                                       'b': A(0x30),
+                                       'h': A(0x23),
+                                       'g': A(0x22),
+                                       'y': A(0x15),
+                                       'J': B(0x24),
+                                       'T': B(0x14),
+                                       'C': B(0x2e),
+                                       'Z': B(0x2c),
+                                       'AX': B(0x1e, 0x2d),
+                                       'IX': B(0x17, 0x2d),
+                                       'AO': B(0x1e, 0x18),
+                                       'IH': B(0x17, 0x23),
+                                       'AE': B(0x1e, 0x12),
+                                       'OW': B(0x18, 0x11),
+                                       'EY': B(0x12, 0x15),
+                                       'UX': B(0x16, 0x2d),
+                                       'UW': B(0x16, 0x11),
+                                       'AY': B(0x1e, 0x15),
+                                       'UH': B(0x16, 0x23),
+                                       'AW': B(0x1e, 0x11),
+                                       'OY': B(0x18, 0x15),
+                                                  })
+    hidinput = res.get('hidinput')
+    def sendkeys(a, b, c):
+        try:
+            hidinput.SendEvent(dbus.Byte(a), dbus.UInt16(b), dbus.Byte(c))
+        except Exception, e:
+            print e
+
+    _type = 1
+    for c in buf:
+        codes = keymap.get(c, [])
+        for i in codes:
+            _code, _value = i
+            sendkeys(_type, _code, _value)
+        print "sent", codes
+    res['buf'] = []
+    return res
+
+
 def tick(agent, *args):
     _t = 0.55
     res = agent.copy()
@@ -167,12 +244,69 @@ def tick(agent, *args):
         now = time.time()
         if (now - lastStroke) > _t:
             if buf:
-                res['buf'] = []
+                res = send(res, sendphon)
     return res
 
 
-def decoder(s):
-    print "decoding", s
+def decoder(agent, s):
+    d = {(4,): 'n', # consonants
+        (3,): 't',
+        (1,): 'r',
+        (2,): 's',
+        (5,): 'd',
+        (1,4): 'l',
+        (2,3): 'D',
+        (3,4): 'z',
+        (1,2): 'm',
+        (2,3,4): 'k',
+        (1,3): 'v',
+        (1,2,3,4): 'w',
+        (1,2,3): 'p',
+        (1,5): 'f',
+        (4,5): 'b',
+        (2,4): 'h',
+        (2,3,4,5): 'N',
+        (1,3,4): 'S',
+        (3,4,5): 'g',
+        (1,2,3,4,5): 'y',
+        (2,5): 'C',
+        (1,4,5): 'J',
+        (1,2,4): 'T',
+        (1,3,4,5): 'Z',
+        (0,): 'AX', # vowels
+        (0,4): 'IX',
+        (0,2): 'AO',
+        (0,1): 'IH',
+        (0,3): 'AE',
+        (0,2,3,4): 'EH',
+        (0,2,3): 'IY',
+        (0,2,4): 'OW',
+        (0,5): 'EY',
+        (0,3,4): 'UX',
+        (0,2,3,4,5): 'UW',
+        (0,4,5): 'AY',
+        (0,3,4,5): 'UH',
+        (0,2,5): None,
+        (0,2,3,5): 'AW',
+        (0,3,5): None,
+        (0,2,4,5): 'OY'}
+    res = agent.copy()
+    r = res.setdefault('left', [59, 57, 56, 54, 51, 49])
+    l = res.setdefault('right', [60, 62, 63, 66, 68, 70])
+    ls = [l.index(k) for k in s if k in l]
+    rs = [r.index(k) for k in s if k in r]
+    ls.sort()
+    rs.sort()
+    ls = tuple(ls)
+    rs = tuple(rs)
+    print "right", rs
+    print "left", ls
+    for k in [d.get(rs, None), d.get(ls, None)]:
+        if k:
+            res['buf'].append(k)
+    res['lastStroke'] = time.time()
+    return res
+
 
 
 def keyUp(agent, event, timestamp):
@@ -190,7 +324,7 @@ def keyUp(agent, event, timestamp):
     if event in keydownbuffer:
         keydownbuffer.remove(event)
     if keydownbuffer == []: # all keys are up
-        decoder(tuple([e[1] for e in res['sbuf']]))
+        res = send(res, decoder, tuple([e[1] for e in res['sbuf']]))
         res['sbuf'] = []
     return res
 
@@ -228,9 +362,6 @@ def input_main(device_id = None):
 
     adapter = dbus.Interface(bus.get_object("org.bluez", path), "org.bluez.GenericHID")
 
-    adapter.Activate()
-    print( "Acitvated keyboard device class")
-
     in_device = dbus.Interface(bus.get_object("org.bluez","/org/bluez/input/hci0/device1"),"org.bluez.GenericHIDInput")
 
 
@@ -262,7 +393,8 @@ def input_main(device_id = None):
     data = None
 
     steno = {'state':0,
-             'ts': time.time()}
+             'ts': time.time(),
+             'hidinput': in_device}
     while going:
         events = event_get()
         steno = send(steno, tick)
@@ -272,11 +404,11 @@ def input_main(device_id = None):
             if e.type in [QUIT]:
                 print (e)
             if e.type in [KEYDOWN]:
-                steno = send(steno, keyDown, e.key, time.time())
+                print "['%s', 0x%x]" % (e.unicode, e.scancode)
                 if e.key in [K_ESCAPE]:
                     going = False
             if e.type in [KEYUP]:
-                steno = send(steno, keyUp, e.key, time.time())
+                pass
 
         if mi.poll():
             midi_events = mi.read(10)
@@ -293,8 +425,6 @@ def input_main(device_id = None):
         #    d.sendKey(i.evtype, i.code, i.value)
 
 
-    adapter.Deactivate()
-    print( "Deactivated keyboard device class")
     del mi
     pygame.midi.quit()
 
