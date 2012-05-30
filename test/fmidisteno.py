@@ -16,42 +16,6 @@ from pygame.locals import *
 
 
 
-class Demo(object):
-    
-    
-    def __init__(self, hid, hidinput):
-        self.hid = hid
-        self.hidinput = hidinput
-
-        self.hid.connect_to_signal("IncomingConnection",
-                                    lambda : self.connectionMade("IncomingConnection"))
-        self.hid.connect_to_signal("DeviceReleased",
-                                    lambda : self.connectionLost("DeviceReleased"))
-        self.hidinput.connect_to_signal("Reconnected", 
-                                        lambda : self.connectionMade("Reconnected"))
-        self.hidinput.connect_to_signal("Disconnected",
-                                        lambda : self.connectionLost("Disconnected"))
-
-
-    def sendKey(self, a, b, c):
-        print( "sendKey %r %r %r" % (a, b, c))
-        self.hidinput.SendEvent(dbus.Byte(a), dbus.UInt16(b), dbus.Byte(c))
-
-
-
-    def connectionMade(self, reason):
-        print( "connectionMade %r" % reason)
-        #v = self.hidinput.GetProperties()
-        #print "Properties are %r" % v
-
-
-    def connectionLost(self, reason):
-        print( "connectionLost %r" % reason)
-
-
-
-
-
 def print_device_info():
     pygame.midi.init()
     _print_device_info()
@@ -73,94 +37,26 @@ def _print_device_info():
                (i, interf, name, opened, in_out))
         
 
-class Keyer(object):
-    """
-    Use keyDown and keyUp as callbacks for triggering the decoder
-    with the relevant chord of keys.
-
-
-    @type  decoder: method
-    @param decoder: called with the chord as a tuple like (0,1,2)
-
-    """
-
-    threshold = 1500
-    decoder = lambda a, b: None
-
-
-    def __init__(self, decoder, threshold=None):
-        if decoder is not None:
-            self.decoder = decoder
-        self.maxtime = 0
-        self.buffer = []
-        self.keyDownbuffer = []
-        if threshold is not None:
-            self.threshold = threshold
-
-
-    def keyUp(self, event, timestamp):
-        if timestamp - self.maxtime > self.threshold:
-            self.buffer = []
-        self.maxtime = timestamp
-        self.buffer.append(event)
-        if event in self.keyDownbuffer:
-            self.keyDownbuffer.remove(event)
-        if self.all_keys_up():
-            self.decoder(tuple(self.buffer))
-            self.buffer = []
-
-
-    def keyDown(self, event, timestamp):
-        self.keyDownbuffer.append(event)
-
-
-    def all_keys_up(self):
-        return self.keyDownbuffer == []
-
-
-class Statefull:
-    def __init__(self):
-        self.keyer = Keyer(self.strokeReceived)
-        self.buf = []
-        self.lastStrokeReceived = time.time()
-
-    def _stroke2string(self, t):
-        return str(t)
-
-    _t = 0.550
-
-    def tick(self):
-        now = time.time()
-        if (now - self.lastStrokeReceived) > self._t:
-            if self.buf:
-                self.buf = []
-
-    def strokeReceived(self, p):
-        self.buf.append(self._stroke2string(p))
-        self.lastStrokeReceived = time.time()
-    # states return newstate, data and take data, e
-    
-    def _collectStroke(self, e):
-        if e.type == pygame.midi.MIDIIN:
-            note, status = e.data1, e.status
-            if status == 144: #keydown
-                self.keyer.keyDown(note, time.time())
-            if status == 128:
-                self.keyer.keyUp(note, time.time())
-    
-    def state_init(self, data, e):
-        self._collectStroke(e)
-        return 'init', data
-
-
 # do this clojure style
 def send(agent, fn, *args):
     return fn(agent, *args)
 
+def _get_stresses(v):
+    o = v
+    stress2 = -1
+    stress1 = v.index(max(o))
+    o.remove(max(o))
+    if o:
+        stress2 = v.index(max(o))
+    if stress1 == stress2:
+        stress2 = -1
+    return stress1, stress2
 
 def sendphon(agent):
     res = agent.copy()
-    buf = res['buf']
+    buf = [k[0] for k in res['buf']]
+    vel = [k[1] for k in res['buf']]
+    stress1, stress2 = _get_stresses(vel)
     # keyboard macro language is the tuple of arguments to SendEvent
     # but for the simple case it's just one argument
     # for the slightly more complex case it is two
@@ -220,7 +116,6 @@ def sendphon(agent):
     #keymap = res.setdefault('keymap', KEYMAP)
     hidinput = res.get('hidinput')
     def sendkeys(a, b, c):
-        print "sendkeys", a, b, c
         try:
             hidinput.SendEvent(dbus.Byte(a), dbus.UInt16(b), dbus.Byte(c))
         except Exception, e:
@@ -237,10 +132,13 @@ def sendphon(agent):
     pre += B(0x19, 0x23, 0x18, 0x31)
     pre += A(0x1b, 0x1b)
     post = A(0x1c)
-
-    for phon in buf:
+    for i, phon in enumerate(buf):
         keyb = phonmap.get(phon, [])
         if keyb:
+            if i == stress1:
+                s += A(0x2)
+            if i == stress2:
+                s += A(0x3)
             s += keyb 
     s = pre + s + post
     for i in s:
@@ -262,6 +160,17 @@ def tick(agent, *args):
                 res = send(res, sendphon)
     return res
 
+def _lravg(v, ls, rs):
+    # for finding the velocity of each hand
+    lv = v[0:len(ls)]
+    rv = v[len(ls):]
+    l = 0
+    r = 0
+    if rs:
+        r = sum(rv)/float(len(rs))
+    if ls:
+        l = sum(lv)/float(len(ls))
+    return l, r
 
 def decoder(agent, s):
     d = {(4,): 'n', # consonants
@@ -305,20 +214,24 @@ def decoder(agent, s):
         (0,2,3,5): 'AW',
         (0,3,5): None,
         (0,2,4,5): 'OY'}
+    v = [k[2] for k in s]
+    s = [k[1] for k in s]
     res = agent.copy()
-    r = res.setdefault('left', [59, 57, 56, 54, 51, 49])
-    l = res.setdefault('right', [60, 62, 63, 66, 68, 70])
+    l = res.setdefault('left', [59, 57, 56, 54, 51, 49])
+    r = res.setdefault('right', [60, 62, 63, 66, 68, 70])
     ls = [l.index(k) for k in s if k in l]
     rs = [r.index(k) for k in s if k in r]
+    lv, rv = _lravg(v, ls, rs)
     ls.sort()
     rs.sort()
     ls = tuple(ls)
     rs = tuple(rs)
-    print "right", rs
-    print "left", ls
-    for k in [d.get(rs, None), d.get(ls, None)]:
-        if k:
-            res['buf'].append(k)
+    left = d.get(ls, None)
+    right = d.get(rs, None)
+    if left:
+        res['buf'].append((left, lv))
+    if right:
+        res['buf'].append((right, rv))
     res['lastStroke'] = time.time()
     return res
 
@@ -330,33 +243,34 @@ def keyUp(agent, event, timestamp):
     keydownbuffer = res.setdefault('keydownbuffer', [])
     threshold = 0.5
     newsbuf = []
+    note, vel = [k for k in keydownbuffer if k[0] == event][0] # find the event
+    keydownbuffer.remove((note,vel))
     for i in res['sbuf']:
-        ts, e = i
+        ts, e, v = i
         if timestamp - ts < threshold:
-            newsbuf.append((ts, e))
+            newsbuf.append((ts, e, v))
     res['sbuf'] = newsbuf
-    res['sbuf'].append((timestamp, event))
-    if event in keydownbuffer:
-        keydownbuffer.remove(event)
+    res['sbuf'].append((timestamp, event, vel))
     if keydownbuffer == []: # all keys are up
-        res = send(res, decoder, tuple([e[1] for e in res['sbuf']]))
+        res = send(res, decoder, tuple(res['sbuf']))
         res['sbuf'] = []
+    res['keydownbuffer'] = keydownbuffer
     return res
 
 
-def keyDown(agent, event, timestamp):
+def keyDown(agent, event, vel, timestamp):
     res = agent.copy()
     sbuf = res.setdefault('sbuf', [])
     keydownbuffer = res.setdefault('keydownbuffer', [])
-    keydownbuffer.append(event)
+    keydownbuffer.append((event, vel))
     return res
 
 
 def midi_event(agent, e):
     res = agent.copy()
-    note, status = e.data1, e.status
+    note, status, vel = e.data1, e.status, e.data2
     if status == 144: #keydown
-        res = send(res, keyDown, note, time.time())
+        res = send(res, keyDown, note, vel, time.time())
     if status == 128:
         res = send(res, keyUp, note, time.time())
     return res
@@ -380,7 +294,6 @@ def input_main(device_id = None):
     in_device = dbus.Interface(bus.get_object("org.bluez","/org/bluez/input/hci0/device1"),"org.bluez.GenericHIDInput")
 
 
-    d = Demo(adapter, in_device)
     #midi stuff
     pygame.init()
     pygame.fastevent.init()
