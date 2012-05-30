@@ -181,7 +181,7 @@ def sendphon(agent):
         return res
 
 
-    keymap = res.setdefault('keymap', {'D': B(0x20),  
+    phonmap = res.setdefault('phonmap', {'D': B(0x20),  
                                        'n': A(0x31),
                                        't': A(0x14),
                                        'r': A(0x13),
@@ -217,6 +217,7 @@ def sendphon(agent):
                                        'AW': B(0x1e, 0x11),
                                        'OY': B(0x18, 0x15),
                                                   })
+    #keymap = res.setdefault('keymap', KEYMAP)
     hidinput = res.get('hidinput')
     def sendkeys(a, b, c):
         print "sendkeys", a, b, c
@@ -231,20 +232,20 @@ def sendphon(agent):
             _code, _value = i
             sendkeys(_type, _code, _value)
 
-    s = [A(k) for k in [0x22, 0x22, 0x1f, 0x39, 0x21, 0x1c, 0x41]]
-    s += [B(k) for k in [0x21, 0x39, 0x20, 0x39]]
-    s += [A(k) for k in [0x23, 0x23]]
+    s = []
+    pre = A(0x1a, 0x1a, 0x17, 0x31, 0x19, 0x14, 0x39)
+    pre += B(0x19, 0x23, 0x18, 0x31)
+    pre += A(0x1b, 0x1b)
+    post = A(0x1c)
 
-    for c in buf:
-        codes = keymap.get(c, [])
-        if codes:
-            buf += codes
-    s += [A(0x1e)]
-    print "s is ", s
+    for phon in buf:
+        keyb = phonmap.get(phon, [])
+        if keyb:
+            s += keyb 
+    s = pre + s + post
     for i in s:
-        for j in i:
-            _code, _value = j 
-            sendkeys(_type, _code, _value)
+        _code, _value = i 
+        sendkeys(_type, _code, _value)
     res['buf'] = []
     return res
 
