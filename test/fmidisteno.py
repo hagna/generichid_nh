@@ -219,18 +219,32 @@ def sendphon(agent):
                                                   })
     hidinput = res.get('hidinput')
     def sendkeys(a, b, c):
+        print "sendkeys", a, b, c
         try:
             hidinput.SendEvent(dbus.Byte(a), dbus.UInt16(b), dbus.Byte(c))
         except Exception, e:
             print e
 
     _type = 1
-    for c in buf:
-        codes = keymap.get(c, [])
-        for i in codes:
+    def send_s(s):
+        for i in s:
             _code, _value = i
             sendkeys(_type, _code, _value)
-        print "sent", codes
+
+    s = [A(k) for k in [0x22, 0x22, 0x1f, 0x39, 0x21, 0x1c, 0x41]]
+    s += [B(k) for k in [0x21, 0x39, 0x20, 0x39]]
+    s += [A(k) for k in [0x23, 0x23]]
+
+    for c in buf:
+        codes = keymap.get(c, [])
+        if codes:
+            buf += codes
+    s += [A(0x1e)]
+    print "s is ", s
+    for i in s:
+        for j in i:
+            _code, _value = j 
+            sendkeys(_type, _code, _value)
     res['buf'] = []
     return res
 
