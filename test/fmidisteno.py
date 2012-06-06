@@ -112,6 +112,8 @@ def sendphon(agent):
                                        'UH': B(0x16, 0x23),
                                        'AW': B(0x1e, 0x11),
                                        'OY': B(0x18, 0x15),
+                                       ['IH', 'r']: B(0x17, 0x2d) + A(0x13),
+                                       ['y', 'UW']: A(0x15) + B(0x16, 0x11),
                                                   })
     #keymap = res.setdefault('keymap', KEYMAP)
     hidinput = res.get('hidinput')
@@ -210,9 +212,9 @@ def decoder(agent, s):
         (0,2,3,4,5): 'UW',
         (0,4,5): 'AY',
         (0,3,4,5): 'UH',
-        (0,2,5): None,
+        (0,2,5):  ['IH', 'r'],
         (0,2,3,5): 'AW',
-        (0,3,5): None,
+        (0,3,5):  ['y', 'UW'],
         (0,2,4,5): 'OY'}
     v = [k[2] for k in s]
     s = [k[1] for k in s]
