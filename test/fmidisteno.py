@@ -100,6 +100,8 @@ def sendphon(agent):
                                        'C': B(0x2e),
                                        'Z': B(0x2c),
                                        'AX': B(0x1e, 0x2d),
+                                       'EH': B(0x12, 0x23),
+                                       'IY': B(0x17, 0x15),
                                        'IX': B(0x17, 0x2d),
                                        'AO': B(0x1e, 0x18),
                                        'IH': B(0x17, 0x23),
@@ -112,8 +114,8 @@ def sendphon(agent):
                                        'UH': B(0x16, 0x23),
                                        'AW': B(0x1e, 0x11),
                                        'OY': B(0x18, 0x15),
-                                       ['IH', 'r']: B(0x17, 0x2d) + A(0x13),
-                                       ['y', 'UW']: A(0x15) + B(0x16, 0x11),
+                                       ('IH', 'r'): B(0x17, 0x2d) + A(0x13),
+                                       ('y', 'UW'): A(0x15) + B(0x16, 0x11),
                                                   })
     #keymap = res.setdefault('keymap', KEYMAP)
     hidinput = res.get('hidinput')
@@ -212,9 +214,9 @@ def decoder(agent, s):
         (0,2,3,4,5): 'UW',
         (0,4,5): 'AY',
         (0,3,4,5): 'UH',
-        (0,2,5):  ['IH', 'r'],
+        (0,2,5):  ('IH', 'r'),
         (0,2,3,5): 'AW',
-        (0,3,5):  ['y', 'UW'],
+        (0,3,5):  ('y', 'UW'),
         (0,2,4,5): 'OY'}
     v = [k[2] for k in s]
     s = [k[1] for k in s]
@@ -234,6 +236,7 @@ def decoder(agent, s):
         res['buf'].append((left, lv))
     if right:
         res['buf'].append((right, rv))
+    print "buf is ", res['buf']
     res['lastStroke'] = time.time()
     return res
 
@@ -271,9 +274,9 @@ def keyDown(agent, event, vel, timestamp):
 def midi_event(agent, e):
     res = agent.copy()
     note, status, vel = e.data1, e.status, e.data2
-    if status == 144: #keydown
+    if status == 144 and vel != 0: #keydown
         res = send(res, keyDown, note, vel, time.time())
-    if status == 128:
+    if status == 128 or vel == 0: # hack for kawai
         res = send(res, keyUp, note, time.time())
     return res
 
@@ -334,7 +337,6 @@ def input_main(device_id = None):
             if e.type in [QUIT]:
                 print (e)
             if e.type in [KEYDOWN]:
-                print "['%s', 0x%x]" % (e.unicode, e.scancode)
                 if e.key in [K_ESCAPE]:
                     going = False
             if e.type in [KEYUP]:
