@@ -79,9 +79,11 @@ def sendphon(agent):
 
     phonmap = res.setdefault('phonmap', {'D': B(0x20),  
                                        'n': A(0x31),
+                                       'N': B(0x31),
                                        't': A(0x14),
                                        'r': A(0x13),
                                        's': A(0x1f),
+                                       'S': B(0x1f),
                                        'd': A(0x20),
                                        'l': A(0x26),
                                        'z': A(0x2c),
@@ -236,7 +238,6 @@ def decoder(agent, s):
         res['buf'].append((left, lv))
     if right:
         res['buf'].append((right, rv))
-    print "buf is ", res['buf']
     res['lastStroke'] = time.time()
     return res
 
