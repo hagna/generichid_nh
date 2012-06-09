@@ -13,7 +13,7 @@ import os
 import pygame
 import pygame.midi
 from pygame.locals import *
-
+import pickle
 
 
 def print_device_info():
@@ -281,6 +281,38 @@ def midi_event(agent, e):
         res = send(res, keyUp, note, time.time())
     return res
 
+def loadsteno(steno):
+    res = steno.copy()
+    try:
+        fh = open('./stenostate.dat', 'r')
+        res.update(pickle.load(fh))
+        if not res:
+            print "No file stenostate.dat"
+        fh.close() 
+    except Exception, e:
+        print e
+    return res
+
+
+
+def writesteno(steno):
+    try:
+        fh = open('./stenostate.dat', 'w')
+        steno.pop('hidinput')
+        pickle.dump(steno, fh)
+    except Exception, e:
+        print "error writing steno object"
+        print e
+    show_steno(steno)
+
+
+def show_steno(steno):
+    s = steno.keys()
+    s.sort()
+    for i in steno.keys():
+        print i
+        print "\t%r" % steno[i]
+
 
 def input_main(device_id = None):
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -325,10 +357,10 @@ def input_main(device_id = None):
     going = True
     state = 'init'
     data = None
-
     steno = {'state':0,
              'ts': time.time(),
              'hidinput': in_device}
+    steno = loadsteno(steno) 
     while going:
         events = event_get()
         steno = send(steno, tick)
@@ -360,7 +392,7 @@ def input_main(device_id = None):
 
     del mi
     pygame.midi.quit()
-
+    writesteno(steno)
 
 def usage():
     print ("--input [device_id] : Midi message logger")
