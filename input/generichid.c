@@ -376,24 +376,6 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 	return 0;
 }
 
-static inline DBusMessage *invalid_args(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidArguments",
-					"Invalid arguments in method call");
-}
-
-static inline DBusMessage *invalid_input(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidInput",
-					"Invalid input (combination)");
-}
-
-static inline DBusMessage *invalid_keycode(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidKeyCode",
-					"Invalid key code");
-}
-
 static inline DBusMessage *invalid_mouse_action(DBusMessage *msg)
 {
 	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMouseAction",
@@ -422,12 +404,6 @@ static inline DBusMessage *connection_active(DBusMessage *msg)
 {
 	return g_dbus_create_error(msg, ERROR_INTERFACE ".ConnectionActive",
 					"Connection still active");
-}
-
-static inline DBusMessage *already_connected(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".AlreadyConnected",
-					"Device interface already exists");
 }
 
 static inline DBusMessage *device_not_released(DBusMessage *msg)
@@ -747,22 +723,22 @@ static DBusMessage *send_event(DBusConnection *conn,
 	struct device_data *dev = adapt->dev;
 
 	if (!dbus_message_iter_init(msg, &iter))
-			return invalid_args(msg);
+			return btd_error_invalid_args(msg);
 
 	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BYTE)
-		return invalid_args(msg);
+		return btd_error_invalid_args(msg);
 
 	dbus_message_iter_get_basic(&iter, &mode);
 	dbus_message_iter_next(&iter);
 
 	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT16)
-		return invalid_args(msg);
+		return btd_error_invalid_args(msg);
 
 	dbus_message_iter_get_basic(&iter, &code);
 	dbus_message_iter_next(&iter);
 
 	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BYTE)
-		return invalid_args(msg);
+		return btd_error_invalid_args(msg);
 
 	dbus_message_iter_get_basic(&iter, &value);
 
@@ -945,7 +921,7 @@ static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 		return pending_connection(msg);
 
 	if (dev->intr != NULL)
-		return already_connected(msg);
+		return btd_error_already_connected(msg);
 
 	info = g_try_new(struct user_data, 1);
 	if (info == NULL)
@@ -1090,15 +1066,15 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 		return pending_connection(msg);
 
 	if (dev->input_path != NULL)
-		return already_connected(msg);
+		return btd_error_already_connected(msg);
 
 		info = g_try_new(struct user_data, 1);
 
 	if (!dbus_message_iter_init(msg, &iter))
-			return invalid_args(msg);
+			return btd_error_invalid_args(msg);
 
 	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-		return invalid_args(msg);
+		return btd_error_invalid_args(msg);
 
 	if (info == NULL)
 		return not_enough_memory(msg);
