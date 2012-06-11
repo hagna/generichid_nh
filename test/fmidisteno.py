@@ -13,7 +13,7 @@ import os
 import pygame
 import pygame.midi
 from pygame.locals import *
-
+import pickle
 
 
 def print_device_info():
@@ -79,9 +79,11 @@ def sendphon(agent):
 
     phonmap = res.setdefault('phonmap', {'D': B(0x20),  
                                        'n': A(0x31),
+                                       'N': B(0x31),
                                        't': A(0x14),
                                        'r': A(0x13),
                                        's': A(0x1f),
+                                       'S': B(0x1f),
                                        'd': A(0x20),
                                        'l': A(0x26),
                                        'z': A(0x2c),
@@ -100,6 +102,8 @@ def sendphon(agent):
                                        'C': B(0x2e),
                                        'Z': B(0x2c),
                                        'AX': B(0x1e, 0x2d),
+                                       'EH': B(0x12, 0x23),
+                                       'IY': B(0x17, 0x15),
                                        'IX': B(0x17, 0x2d),
                                        'AO': B(0x1e, 0x18),
                                        'IH': B(0x17, 0x23),
@@ -112,8 +116,8 @@ def sendphon(agent):
                                        'UH': B(0x16, 0x23),
                                        'AW': B(0x1e, 0x11),
                                        'OY': B(0x18, 0x15),
-                                       ['IH', 'r']: B(0x17, 0x2d) + A(0x13),
-                                       ['y', 'UW']: A(0x15) + B(0x16, 0x11),
+                                       ('IH', 'r'): B(0x17, 0x2d) + A(0x13),
+                                       ('y', 'UW'): A(0x15) + B(0x16, 0x11),
                                                   })
     #keymap = res.setdefault('keymap', KEYMAP)
     hidinput = res.get('hidinput')
@@ -212,9 +216,9 @@ def decoder(agent, s):
         (0,2,3,4,5): 'UW',
         (0,4,5): 'AY',
         (0,3,4,5): 'UH',
-        (0,2,5):  ['IH', 'r'],
+        (0,2,5):  ('IH', 'r'),
         (0,2,3,5): 'AW',
-        (0,3,5):  ['y', 'UW'],
+        (0,3,5):  ('y', 'UW'),
         (0,2,4,5): 'OY'}
     v = [k[2] for k in s]
     s = [k[1] for k in s]
@@ -271,11 +275,43 @@ def keyDown(agent, event, vel, timestamp):
 def midi_event(agent, e):
     res = agent.copy()
     note, status, vel = e.data1, e.status, e.data2
-    if status == 144: #keydown
+    if status == 144 and vel != 0: #keydown
         res = send(res, keyDown, note, vel, time.time())
-    if status == 128:
+    if status == 128 or vel == 0: # hack for kawai
         res = send(res, keyUp, note, time.time())
     return res
+
+def loadsteno(steno):
+    res = steno.copy()
+    try:
+        fh = open('./stenostate.dat', 'r')
+        res.update(pickle.load(fh))
+        if not res:
+            print "No file stenostate.dat"
+        fh.close() 
+    except Exception, e:
+        print e
+    return res
+
+
+
+def writesteno(steno):
+    try:
+        fh = open('./stenostate.dat', 'w')
+        steno.pop('hidinput')
+        pickle.dump(steno, fh)
+    except Exception, e:
+        print "error writing steno object"
+        print e
+    show_steno(steno)
+
+
+def show_steno(steno):
+    s = steno.keys()
+    s.sort()
+    for i in steno.keys():
+        print i
+        print "\t%r" % steno[i]
 
 
 def input_main(device_id = None):
@@ -321,10 +357,10 @@ def input_main(device_id = None):
     going = True
     state = 'init'
     data = None
-
     steno = {'state':0,
              'ts': time.time(),
              'hidinput': in_device}
+    steno = loadsteno(steno) 
     while going:
         events = event_get()
         steno = send(steno, tick)
@@ -334,7 +370,6 @@ def input_main(device_id = None):
             if e.type in [QUIT]:
                 print (e)
             if e.type in [KEYDOWN]:
-                print "['%s', 0x%x]" % (e.unicode, e.scancode)
                 if e.key in [K_ESCAPE]:
                     going = False
             if e.type in [KEYUP]:
@@ -357,7 +392,7 @@ def input_main(device_id = None):
 
     del mi
     pygame.midi.quit()
-
+    writesteno(steno)
 
 def usage():
     print ("--input [device_id] : Midi message logger")
