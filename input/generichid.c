@@ -139,28 +139,7 @@ struct user_data {
 	func_ptr func;
 };
 
-/*static void change_device_class(struct adapter_data *adapt)
-{
-	if (adapt->active != 0)
-		return;
-	//adapt->original_cod = adapt->adapter->current_cod;
-	btd_adapter_set_class(adapt->adapter, KEYB_MAJOR, KEYB_MINOR);
-	adapt->active = 1;
-}
 
-static void restore_device_class(struct adapter_data *adapt)
-{
-	uint8_t major, minor;
-
-	if (adapt->active != 1)
-		return;
-
-	major = adapt->original_cod >> 8;
-	minor = adapt->original_cod;
-	btd_adapter_set_class(adapt->adapter, major, minor);
-	adapt->active = 0;
-}
-*/
 static void add_lang_attr(sdp_record_t *r)
 {
 	sdp_lang_attr_t base_lang;
@@ -392,30 +371,6 @@ static inline DBusMessage *connection_error(DBusMessage *msg)
 {
 	return g_dbus_create_error(msg, ERROR_INTERFACE ".ConnectionError",
 					"Connection error");
-}
-
-static inline DBusMessage *pending_connection(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".PendingConnection",
-					"Pending Connection");
-}
-
-static inline DBusMessage *connection_active(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".ConnectionActive",
-					"Connection still active");
-}
-
-static inline DBusMessage *device_not_released(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".DeviceNotReleased",
-					"Device not released");
-}
-
-static inline DBusMessage *not_implemented(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".NotImplemented",
-					"Not Implemented (yet)");
 }
 
 static inline DBusMessage *plug_failed(DBusMessage *msg)
@@ -757,12 +712,6 @@ static DBusMessage *send_event(DBusConnection *conn,
 	return invalid_mode(msg);
 }
 
-static DBusMessage *get_properties(DBusConnection *conn,
-		DBusMessage *msg, void *data)
-{
-	return not_implemented(msg);
-}
-
 
 static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
@@ -918,7 +867,7 @@ static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 	struct user_data *info;
 
 	if (adapt->pending)
-		return pending_connection(msg);
+		return btd_error_in_progress(msg);
 
 	if (dev->intr != NULL)
 		return btd_error_already_connected(msg);
@@ -997,7 +946,6 @@ static const GDBusSignalTable ghid_input_device_signals[] = {
 
 static const GDBusMethodTable ghid_input_device_methods[] = {
 	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, send_event) },
-	{ GDBUS_METHOD("GetProperties",	NULL, GDBUS_ARGS({"properties", "a{sv}"}),	get_properties) },
 	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
 	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device)	},
 	{}
@@ -1063,7 +1011,7 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 	struct user_data *info;
 
 	if (adapt->pending)
-		return pending_connection(msg);
+		return btd_error_in_progress(msg);
 
 	if (dev->input_path != NULL)
 		return btd_error_already_connected(msg);
@@ -1113,34 +1061,6 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 }
 
 
-/*
-static DBusMessage *activate(DBusConnection *conn, DBusMessage *msg,
-					void *data)
-{
-	struct adapter_data *adapt = data;
-
-	change_device_class(adapt);
-
-    btd_debug("Changed device class to keyboard");
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-
-static DBusMessage *deactivate(DBusConnection *conn, DBusMessage *msg,
-					void *data)
-{
-	struct adapter_data *adapt = data;
-	struct device_data *dev = adapt->dev;
-
-	if (dev->input_path != NULL)
-		return device_not_released(msg);
-
-	restore_device_class(adapt);
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-*/
-
 static const GDBusSignalTable ghid_adapter_signals[] = {
 	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
 	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
@@ -1148,8 +1068,6 @@ static const GDBusSignalTable ghid_adapter_signals[] = {
 };
 
 static const GDBusMethodTable ghid_adapter_methods[] = {
-	//{ GDBUS_METHOD("Activate", NULL, NULL,	activate) },
-	//{ GDBUS_METHOD("Deactivate", NULL, NULL, deactivate) },
 	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
 	{ }
 };
