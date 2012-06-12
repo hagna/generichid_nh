@@ -355,29 +355,6 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 	return 0;
 }
 
-static inline DBusMessage *invalid_mouse_action(DBusMessage *msg)
-{
-	/*return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMouseAction",
-	      "Invalid mouse action");
-          */
-    return btd_error_failed(msg, "Invalid mouse action");
-}
-
-static inline DBusMessage *invalid_mode(DBusMessage *msg)
-{
-	/*return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMode",
-					"Invalid profile mode");
-                    */
-    return btd_error_failed(msg, "Invalid profile mode");
-}
-
-
-static inline DBusMessage *plug_failed(DBusMessage *msg)
-{
-	/*return g_dbus_create_error(msg, ERROR_INTERFACE ".PlugFailed",
-					"Failed to plug the device");*/
-    return btd_error_failed(msg, "Failed to plug the device");
-}
 
 
 static int mouse_action(GIOChannel *chan, unsigned char btn,
@@ -507,7 +484,7 @@ static DBusMessage *mouse_event(GIOChannel *chan, DBusMessage *msg,
 						value);
 
 	default:
-		return invalid_mouse_action(msg);
+		return btd_error_failed(msg, "Invalid mouse action");
 	}
 }
 
@@ -704,7 +681,7 @@ static DBusMessage *send_event(DBusConnection *conn,
 		return mouse_event(dev->intr, msg,
 					&(dev->mouse), code, value);
 
-	return invalid_mode(msg);
+	return btd_error_failed(msg, "Invalid profile mode");
 }
 
 
@@ -891,7 +868,7 @@ static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 		if (info != NULL)
 			g_free(info);
 
-		return plug_failed(msg);
+		return btd_error_failed(msg, "Failed to plug the device");
 	}
 
 	dev->ctrl = io;
@@ -1048,7 +1025,7 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 		if (info != NULL)
 			g_free(info);
 
-		return plug_failed(msg);
+		return btd_error_failed(msg, "Failed to plug the device");
 	}
 
 	dev->ctrl = io;
