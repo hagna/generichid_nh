@@ -357,33 +357,28 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 
 static inline DBusMessage *invalid_mouse_action(DBusMessage *msg)
 {
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMouseAction",
-					"Invalid mouse action");
+	/*return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMouseAction",
+	      "Invalid mouse action");
+          */
+    return btd_error_failed(msg, "Invalid mouse action");
 }
 
 static inline DBusMessage *invalid_mode(DBusMessage *msg)
 {
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMode",
+	/*return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMode",
 					"Invalid profile mode");
+                    */
+    return btd_error_failed(msg, "Invalid profile mode");
 }
 
-static inline DBusMessage *connection_error(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".ConnectionError",
-					"Connection error");
-}
 
 static inline DBusMessage *plug_failed(DBusMessage *msg)
 {
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".PlugFailed",
-					"Failed to plug the device");
+	/*return g_dbus_create_error(msg, ERROR_INTERFACE ".PlugFailed",
+					"Failed to plug the device");*/
+    return btd_error_failed(msg, "Failed to plug the device");
 }
 
-static inline DBusMessage *not_enough_memory(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".NotEnoughMemory",
-					"Not enough memory");
-}
 
 static int mouse_action(GIOChannel *chan, unsigned char btn,
 				unsigned char mov_x, unsigned char mov_y,
@@ -425,7 +420,7 @@ static DBusMessage *mouse_button_action(GIOChannel *chan, DBusMessage *msg,
 		mouse->button &= ~button;
 
 		if (mouse_action(chan, mouse->button, 0, 0, 0, 0) < 0)
-			return connection_error(msg);
+			return btd_error_not_connected(msg);
 
 		return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 	}
@@ -433,7 +428,7 @@ static DBusMessage *mouse_button_action(GIOChannel *chan, DBusMessage *msg,
 	mouse->button |= button;
 
 	if (mouse_action(chan, mouse->button, 0, 0, 0, 0) < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
@@ -451,7 +446,7 @@ static DBusMessage *mouse_move_action(GIOChannel *chan, DBusMessage *msg,
 
 		if (mouse_action(chan, mouse->button, mouse->x_axis,
 				mouse->y_axis, 0, 0) < 0)
-			return connection_error(msg);
+			return btd_error_not_connected(msg);
 
 		return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 	}
@@ -465,7 +460,7 @@ static DBusMessage *mouse_scroll_action(GIOChannel *chan, DBusMessage *msg,
 		struct mouse_state *mouse, char value)
 {
 	if (mouse_action(chan, mouse->button, 0, 0, value, 0) < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
@@ -476,7 +471,7 @@ static DBusMessage *mouse_horizontal_scroll_action(GIOChannel *chan,
 							char value)
 {
 	if (mouse_action(chan, mouse->button, 0, 0, 0, value) < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
@@ -599,13 +594,13 @@ static DBusMessage *phantom_state(GIOChannel *chan,
 	memset(&value[4], 1, 6);
 
 	if (chan == NULL)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	fd = g_io_channel_unix_get_fd(chan);
 
 	err = write(fd, value, HIDP_KEYB_SIZE);
 	if (err < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return NULL;
 }
@@ -616,13 +611,13 @@ static DBusMessage *send_report(GIOChannel *chan,
 	int fd, err;
 
 	if (chan == NULL)
-		return connection_error(msg);;
+		return btd_error_not_connected(msg);;
 
 	fd = g_io_channel_unix_get_fd(chan);
 
 	err = write(fd, keyboard->value, HIDP_KEYB_SIZE);
 	if (err < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return NULL;
 }
@@ -698,7 +693,7 @@ static DBusMessage *send_event(DBusConnection *conn,
 	dbus_message_iter_get_basic(&iter, &value);
 
 	if (dev->intr == NULL)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	if (mode == EV_KEY) /* keboard */
 		return keyboard_event(dev->intr, msg,
@@ -874,7 +869,7 @@ static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 
 	info = g_try_new(struct user_data, 1);
 	if (info == NULL)
-		return not_enough_memory(msg);
+		return btd_error_failed(msg, strerror(-ENOMEM));
 
 	info->adapt = adapt;
 	info->func = NULL;
@@ -1025,7 +1020,7 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 		return btd_error_invalid_args(msg);
 
 	if (info == NULL)
-		return not_enough_memory(msg);
+		return btd_error_failed(msg, strerror(-ENOMEM));
 
 	info->adapt = adapt;
 	info->func = register_input_device;
