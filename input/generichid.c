@@ -139,28 +139,7 @@ struct user_data {
 	func_ptr func;
 };
 
-/*static void change_device_class(struct adapter_data *adapt)
-{
-	if (adapt->active != 0)
-		return;
-	//adapt->original_cod = adapt->adapter->current_cod;
-	btd_adapter_set_class(adapt->adapter, KEYB_MAJOR, KEYB_MINOR);
-	adapt->active = 1;
-}
 
-static void restore_device_class(struct adapter_data *adapt)
-{
-	uint8_t major, minor;
-
-	if (adapt->active != 1)
-		return;
-
-	major = adapt->original_cod >> 8;
-	minor = adapt->original_cod;
-	btd_adapter_set_class(adapt->adapter, major, minor);
-	adapt->active = 0;
-}
-*/
 static void add_lang_attr(sdp_record_t *r)
 {
 	sdp_lang_attr_t base_lang;
@@ -376,83 +355,7 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 	return 0;
 }
 
-static inline DBusMessage *invalid_args(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidArguments",
-					"Invalid arguments in method call");
-}
 
-static inline DBusMessage *invalid_input(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidInput",
-					"Invalid input (combination)");
-}
-
-static inline DBusMessage *invalid_keycode(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidKeyCode",
-					"Invalid key code");
-}
-
-static inline DBusMessage *invalid_mouse_action(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMouseAction",
-					"Invalid mouse action");
-}
-
-static inline DBusMessage *invalid_mode(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidMode",
-					"Invalid profile mode");
-}
-
-static inline DBusMessage *connection_error(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".ConnectionError",
-					"Connection error");
-}
-
-static inline DBusMessage *pending_connection(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".PendingConnection",
-					"Pending Connection");
-}
-
-static inline DBusMessage *connection_active(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".ConnectionActive",
-					"Connection still active");
-}
-
-static inline DBusMessage *already_connected(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".AlreadyConnected",
-					"Device interface already exists");
-}
-
-static inline DBusMessage *device_not_released(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".DeviceNotReleased",
-					"Device not released");
-}
-
-static inline DBusMessage *not_implemented(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".NotImplemented",
-					"Not Implemented (yet)");
-}
-
-static inline DBusMessage *plug_failed(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".PlugFailed",
-					"Failed to plug the device");
-}
-
-static inline DBusMessage *not_enough_memory(DBusMessage *msg)
-{
-	return g_dbus_create_error(msg, ERROR_INTERFACE ".NotEnoughMemory",
-					"Not enough memory");
-}
 
 static int mouse_action(GIOChannel *chan, unsigned char btn,
 				unsigned char mov_x, unsigned char mov_y,
@@ -494,7 +397,7 @@ static DBusMessage *mouse_button_action(GIOChannel *chan, DBusMessage *msg,
 		mouse->button &= ~button;
 
 		if (mouse_action(chan, mouse->button, 0, 0, 0, 0) < 0)
-			return connection_error(msg);
+			return btd_error_not_connected(msg);
 
 		return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 	}
@@ -502,7 +405,7 @@ static DBusMessage *mouse_button_action(GIOChannel *chan, DBusMessage *msg,
 	mouse->button |= button;
 
 	if (mouse_action(chan, mouse->button, 0, 0, 0, 0) < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
@@ -520,7 +423,7 @@ static DBusMessage *mouse_move_action(GIOChannel *chan, DBusMessage *msg,
 
 		if (mouse_action(chan, mouse->button, mouse->x_axis,
 				mouse->y_axis, 0, 0) < 0)
-			return connection_error(msg);
+			return btd_error_not_connected(msg);
 
 		return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 	}
@@ -534,7 +437,7 @@ static DBusMessage *mouse_scroll_action(GIOChannel *chan, DBusMessage *msg,
 		struct mouse_state *mouse, char value)
 {
 	if (mouse_action(chan, mouse->button, 0, 0, value, 0) < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
@@ -545,7 +448,7 @@ static DBusMessage *mouse_horizontal_scroll_action(GIOChannel *chan,
 							char value)
 {
 	if (mouse_action(chan, mouse->button, 0, 0, 0, value) < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
@@ -581,7 +484,7 @@ static DBusMessage *mouse_event(GIOChannel *chan, DBusMessage *msg,
 						value);
 
 	default:
-		return invalid_mouse_action(msg);
+		return btd_error_failed(msg, "Invalid mouse action");
 	}
 }
 
@@ -668,13 +571,13 @@ static DBusMessage *phantom_state(GIOChannel *chan,
 	memset(&value[4], 1, 6);
 
 	if (chan == NULL)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	fd = g_io_channel_unix_get_fd(chan);
 
 	err = write(fd, value, HIDP_KEYB_SIZE);
 	if (err < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return NULL;
 }
@@ -685,13 +588,13 @@ static DBusMessage *send_report(GIOChannel *chan,
 	int fd, err;
 
 	if (chan == NULL)
-		return connection_error(msg);;
+		return btd_error_not_connected(msg);;
 
 	fd = g_io_channel_unix_get_fd(chan);
 
 	err = write(fd, keyboard->value, HIDP_KEYB_SIZE);
 	if (err < 0)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	return NULL;
 }
@@ -747,27 +650,27 @@ static DBusMessage *send_event(DBusConnection *conn,
 	struct device_data *dev = adapt->dev;
 
 	if (!dbus_message_iter_init(msg, &iter))
-			return invalid_args(msg);
+			return btd_error_invalid_args(msg);
 
 	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BYTE)
-		return invalid_args(msg);
+		return btd_error_invalid_args(msg);
 
 	dbus_message_iter_get_basic(&iter, &mode);
 	dbus_message_iter_next(&iter);
 
 	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT16)
-		return invalid_args(msg);
+		return btd_error_invalid_args(msg);
 
 	dbus_message_iter_get_basic(&iter, &code);
 	dbus_message_iter_next(&iter);
 
 	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BYTE)
-		return invalid_args(msg);
+		return btd_error_invalid_args(msg);
 
 	dbus_message_iter_get_basic(&iter, &value);
 
 	if (dev->intr == NULL)
-		return connection_error(msg);
+		return btd_error_not_connected(msg);
 
 	if (mode == EV_KEY) /* keboard */
 		return keyboard_event(dev->intr, msg,
@@ -778,13 +681,7 @@ static DBusMessage *send_event(DBusConnection *conn,
 		return mouse_event(dev->intr, msg,
 					&(dev->mouse), code, value);
 
-	return invalid_mode(msg);
-}
-
-static DBusMessage *get_properties(DBusConnection *conn,
-		DBusMessage *msg, void *data)
-{
-	return not_implemented(msg);
+	return btd_error_failed(msg, "Invalid profile mode");
 }
 
 
@@ -942,14 +839,14 @@ static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 	struct user_data *info;
 
 	if (adapt->pending)
-		return pending_connection(msg);
+		return btd_error_in_progress(msg);
 
 	if (dev->intr != NULL)
-		return already_connected(msg);
+		return btd_error_already_connected(msg);
 
 	info = g_try_new(struct user_data, 1);
 	if (info == NULL)
-		return not_enough_memory(msg);
+		return btd_error_failed(msg, strerror(-ENOMEM));
 
 	info->adapt = adapt;
 	info->func = NULL;
@@ -971,7 +868,7 @@ static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 		if (info != NULL)
 			g_free(info);
 
-		return plug_failed(msg);
+		return btd_error_failed(msg, "Failed to plug the device");
 	}
 
 	dev->ctrl = io;
@@ -1021,7 +918,6 @@ static const GDBusSignalTable ghid_input_device_signals[] = {
 
 static const GDBusMethodTable ghid_input_device_methods[] = {
 	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, send_event) },
-	{ GDBUS_METHOD("GetProperties",	NULL, GDBUS_ARGS({"properties", "a{sv}"}),	get_properties) },
 	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
 	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device)	},
 	{}
@@ -1087,21 +983,21 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 	struct user_data *info;
 
 	if (adapt->pending)
-		return pending_connection(msg);
+		return btd_error_in_progress(msg);
 
 	if (dev->input_path != NULL)
-		return already_connected(msg);
+		return btd_error_already_connected(msg);
 
 		info = g_try_new(struct user_data, 1);
 
 	if (!dbus_message_iter_init(msg, &iter))
-			return invalid_args(msg);
+			return btd_error_invalid_args(msg);
 
 	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-		return invalid_args(msg);
+		return btd_error_invalid_args(msg);
 
 	if (info == NULL)
-		return not_enough_memory(msg);
+		return btd_error_failed(msg, strerror(-ENOMEM));
 
 	info->adapt = adapt;
 	info->func = register_input_device;
@@ -1129,41 +1025,13 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 		if (info != NULL)
 			g_free(info);
 
-		return plug_failed(msg);
+		return btd_error_failed(msg, "Failed to plug the device");
 	}
 
 	dev->ctrl = io;
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
-
-/*
-static DBusMessage *activate(DBusConnection *conn, DBusMessage *msg,
-					void *data)
-{
-	struct adapter_data *adapt = data;
-
-	change_device_class(adapt);
-
-    btd_debug("Changed device class to keyboard");
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-
-static DBusMessage *deactivate(DBusConnection *conn, DBusMessage *msg,
-					void *data)
-{
-	struct adapter_data *adapt = data;
-	struct device_data *dev = adapt->dev;
-
-	if (dev->input_path != NULL)
-		return device_not_released(msg);
-
-	restore_device_class(adapt);
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-*/
 
 static const GDBusSignalTable ghid_adapter_signals[] = {
 	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
@@ -1172,8 +1040,6 @@ static const GDBusSignalTable ghid_adapter_signals[] = {
 };
 
 static const GDBusMethodTable ghid_adapter_methods[] = {
-	//{ GDBUS_METHOD("Activate", NULL, NULL,	activate) },
-	//{ GDBUS_METHOD("Deactivate", NULL, NULL, deactivate) },
 	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
 	{ }
 };
