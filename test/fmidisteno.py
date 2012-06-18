@@ -223,8 +223,8 @@ def decoder(agent, s):
     v = [k[2] for k in s]
     s = [k[1] for k in s]
     res = agent.copy()
-    l = res.setdefault('left', [59, 57, 56, 54, 51, 49])
-    r = res.setdefault('right', [60, 62, 63, 66, 68, 70])
+    l = res.get('left')
+    r = res.get('right')
     ls = [l.index(k) for k in s if k in l]
     rs = [r.index(k) for k in s if k in r]
     lv, rv = _lravg(v, ls, rs)
@@ -245,6 +245,15 @@ def decoder(agent, s):
 
 def keyUp(agent, event, timestamp):
     res = agent.copy()
+    learn = res.setdefault('learn', False)
+    if learn:
+        if len(res['learnbuf']) == 12:
+            res['left'] = res['learnbuf'][:6]
+            res['left'].reverse()
+            res['right'] = res['learnbuf'][6:]
+            res['learnbuf'] = []
+            res['learn'] = False
+        return res
     sbuf = res.setdefault('sbuf', [])
     keydownbuffer = res.setdefault('keydownbuffer', [])
     threshold = 0.5
@@ -266,19 +275,43 @@ def keyUp(agent, event, timestamp):
 
 def keyDown(agent, event, vel, timestamp):
     res = agent.copy()
-    sbuf = res.setdefault('sbuf', [])
-    keydownbuffer = res.setdefault('keydownbuffer', [])
-    keydownbuffer.append((event, vel))
+    learn = res.setdefault('learn', False)
+    if learn:
+        lb = res.setdefault('learnbuf', [])
+        lb.append(event)
+        res['learnbuf'] = lb
+        print lb
+    else: 
+        sbuf = res.setdefault('sbuf', [])
+        keydownbuffer = res.setdefault('keydownbuffer', [])
+        keydownbuffer.append((event, vel))
     return res
 
+def keyb_event(agent, e):
+    res = agent.copy()
+    scancode, vel = e.scancode, 1
+    l = res.setdefault('left', [56, 55, 27, 26, 25, 24])
+    r = res.setdefault('right', [57, 58, 31, 32, 33, 34])
+    learn = res.setdefault('learn', False)
+
+    if scancode in l or scancode in r or learn:
+        if e.type == KEYDOWN:
+            res = send(res, keyDown, scancode, vel, time.time())
+        if e.type == KEYUP:
+            res = send(res, keyUp, scancode, time.time())
+    return res
 
 def midi_event(agent, e):
     res = agent.copy()
+    l = res.setdefault('left', [59, 57, 56, 54, 51, 49])
+    r = res.setdefault('right', [60, 62, 63, 66, 68, 70])
     note, status, vel = e.data1, e.status, e.data2
-    if status == 144 and vel != 0: #keydown
-        res = send(res, keyDown, note, vel, time.time())
-    if status == 128 or vel == 0: # hack for kawai
-        res = send(res, keyUp, note, time.time())
+    learn = res.setdefault('learn', False)
+    if note in l or note in r or learn:
+        if status == 144 and vel != 0: #keydown
+            res = send(res, keyDown, note, vel, time.time())
+        if status == 128 or vel == 0: # hack for kawai
+            res = send(res, keyUp, note, time.time())
     return res
 
 def loadsteno(steno):
@@ -368,12 +401,24 @@ def input_main(device_id = None):
             if e.type in [pygame.midi.MIDIIN]:
                 steno = send(steno, midi_event, e)
             if e.type in [QUIT]:
-                print (e)
+                going = False
+                break
             if e.type in [KEYDOWN]:
                 if e.key in [K_ESCAPE]:
                     going = False
-            if e.type in [KEYUP]:
-                pass
+                    break
+            if e.type == KEYUP:
+                if e.key in [K_F1]:
+                    steno['learn'] = True
+                    print "learning 12 keys from left to right"
+                    break
+                if e.key in [K_F2]:
+                    l = steno.pop('left')
+                    r = steno.pop('right')
+                    print "removing key mapping left was %r and right was %r" % ( l, r)
+                    break
+            if e.type in [KEYDOWN, KEYUP]:
+                steno = send(steno, keyb_event, e)
 
         if mi.poll():
             midi_events = mi.read(10)
