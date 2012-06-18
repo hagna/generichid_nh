@@ -61,7 +61,6 @@ class Agent(dbus.service.Object):
 	def RequestConfirmation(self, device, passkey):
 		print "RequestConfirmation (%s, %06d)" % (device, passkey)
 		confirm = raw_input("Confirm passkey (yes/no): ")
-		print "got confirm == %r" % confirm
 		if (confirm == "yes"):
 			return
 		raise Rejected("Passkey doesn't match")
