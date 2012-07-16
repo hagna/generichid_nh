@@ -1,0 +1,69 @@
+Browsing FF:FF:FF:00:00:00 ...
+Service Name: Headset Audio Gateway
+Service RecHandle: 0x10000
+Service Class ID List:
+  "Headset Audio Gateway" (0x1112)
+  "Generic Audio" (0x1203)
+Protocol Descriptor List:
+  "L2CAP" (0x0100)
+  "RFCOMM" (0x0003)
+    Channel: 12
+Profile Descriptor List:
+  "Headset" (0x1108)
+    Version: 0x0102
+
+Service Name: Hands-Free Audio Gateway
+Service RecHandle: 0x10001
+Service Class ID List:
+  "Handsfree Audio Gateway" (0x111f)
+  "Generic Audio" (0x1203)
+Protocol Descriptor List:
+  "L2CAP" (0x0100)
+  "RFCOMM" (0x0003)
+    Channel: 13
+Profile Descriptor List:
+  "Handsfree" (0x111e)
+    Version: 0x0105
+
+Service Name: AVRCP TG
+Service RecHandle: 0x10002
+Service Class ID List:
+  "AV Remote Target" (0x110c)
+Protocol Descriptor List:
+  "L2CAP" (0x0100)
+    PSM: 23
+  "AVCTP" (0x0017)
+    uint16: 0x103
+Profile Descriptor List:
+  "AV Remote" (0x110e)
+    Version: 0x0103
+
+Service Name: AVRCP CT
+Service RecHandle: 0x10003
+Service Class ID List:
+  "AV Remote" (0x110e)
+Protocol Descriptor List:
+  "L2CAP" (0x0100)
+    PSM: 23
+  "AVCTP" (0x0017)
+    uint16: 0x103
+Profile Descriptor List:
+  "AV Remote" (0x110e)
+    Version: 0x0100
+
+Service Name: HID Keyboard
+Service RecHandle: 0x10004
+Service Class ID List:
+  "Human Interface Device" (0x1124)
+Protocol Descriptor List:
+  "L2CAP" (0x0100)
+    PSM: 17
+  "HIDP" (0x0011)
+Language Base Attr List:
+  code_ISO639: 0x656e
+  encoding:    0x6a
+  base_offset: 0x100
+Profile Descriptor List:
+  "Human Interface Device" (0x1124)
+    Version: 0x0100
+
