@@ -50,7 +50,7 @@
 #include "log.h"
 #include "glib-helper.h"
 #include "btio.h"
-#include "device.h"
+#include "../profiles/input/device.h"
 #include "sdpd.h"
 
 #include "../src/device.h"
