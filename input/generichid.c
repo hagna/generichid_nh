@@ -105,14 +105,6 @@ struct keyboard_state {
 	unsigned char last_value;
 };
 
-struct mouse_state {
-	unsigned char is_moving;
-	unsigned char button;
-	signed char x_axis;
-	signed char y_axis;
-	signed char wheel;
-};
-
 struct device_data {
 	GIOChannel *ctrl;
 	GIOChannel *intr;
@@ -120,7 +112,6 @@ struct device_data {
 	unsigned int intr_watch;
 	char *input_path;
 	struct keyboard_state keyboard;
-	struct mouse_state mouse;
 };
 
 struct adapter_data {
@@ -357,137 +348,6 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 
 
 
-static int mouse_action(GIOChannel *chan, unsigned char btn,
-				unsigned char mov_x, unsigned char mov_y,
-				unsigned char wheel, unsigned char h_wheel)
-{
-	unsigned char data[7];
-	int err;
-	int fd;
-
-	data[0] = 0xa1;
-	data[1] = 0x02;
-	data[2] = btn;
-	data[3] = mov_x;
-	data[4] = mov_y;
-	data[5] = wheel;
-	data[6] = h_wheel;
-
-	if (chan == NULL)
-		return -EINVAL;
-
-	fd = g_io_channel_unix_get_fd(chan);
-
-	err = write(fd, data, 7);
-	if (err < 0)
-		return -EIO;
-
-	return err;
-}
-
-static void initiate_mouse(struct mouse_state *mouse)
-{
-	memset(mouse, 0, sizeof(struct mouse_state));
-}
-
-static DBusMessage *mouse_button_action(GIOChannel *chan, DBusMessage *msg,
-		struct mouse_state *mouse, unsigned char button, char value)
-{
-	if (!value) {
-		mouse->button &= ~button;
-
-		if (mouse_action(chan, mouse->button, 0, 0, 0, 0) < 0)
-			return btd_error_not_connected(msg);
-
-		return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-	}
-
-	mouse->button |= button;
-
-	if (mouse_action(chan, mouse->button, 0, 0, 0, 0) < 0)
-		return btd_error_not_connected(msg);
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-
-static DBusMessage *mouse_move_action(GIOChannel *chan, DBusMessage *msg,
-		struct mouse_state *mouse, uint16_t code, char value)
-{
-	if (code == REL_X)
-		mouse->x_axis = value;
-	else
-		mouse->y_axis = value;
-
-	if (mouse->is_moving) {
-		mouse->is_moving = 0;
-
-		if (mouse_action(chan, mouse->button, mouse->x_axis,
-				mouse->y_axis, 0, 0) < 0)
-			return btd_error_not_connected(msg);
-
-		return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-	}
-
-	mouse->is_moving = 1;
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-
-static DBusMessage *mouse_scroll_action(GIOChannel *chan, DBusMessage *msg,
-		struct mouse_state *mouse, char value)
-{
-	if (mouse_action(chan, mouse->button, 0, 0, value, 0) < 0)
-		return btd_error_not_connected(msg);
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-
-static DBusMessage *mouse_horizontal_scroll_action(GIOChannel *chan,
-							DBusMessage *msg,
-							struct mouse_state *mouse,
-							char value)
-{
-	if (mouse_action(chan, mouse->button, 0, 0, 0, value) < 0)
-		return btd_error_not_connected(msg);
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-
-static DBusMessage *mouse_event(GIOChannel *chan, DBusMessage *msg,
-		struct mouse_state *mouse, uint16_t code, char value)
-{
-	switch (code) {
-	case BTN_LEFT:
-		return mouse_button_action(chan, msg, mouse, 0x01, value);
-
-	case BTN_RIGHT:
-		return mouse_button_action(chan, msg, mouse, 0x02, value);
-
-	case BTN_MIDDLE:
-		return mouse_button_action(chan, msg, mouse, 0x04, value);
-
-	case BTN_FORWARD:
-		return mouse_button_action(chan, msg, mouse, 0x10, value);
-
-	case BTN_BACK:
-		return mouse_button_action(chan, msg, mouse, 0x08, value);
-
-	case REL_X:
-	case REL_Y:
-		return mouse_move_action(chan, msg, mouse, code,
-						value);
-
-	case REL_WHEEL:
-		return mouse_scroll_action(chan, msg, mouse, value);
-	case REL_HWHEEL:
-		return mouse_horizontal_scroll_action(chan, msg, mouse,
-						value);
-
-	default:
-		return btd_error_failed(msg, "Invalid mouse action");
-	}
-}
-
 static void initiate_keyboard(struct keyboard_state *keyboard)
 {
 	keyboard->value[0] = 0xa1;
@@ -503,184 +363,9 @@ static void initiate_keyboard(struct keyboard_state *keyboard)
 	keyboard->last_value = 3;
 }
 
-static char is_control(unsigned char code)
-{
-	unsigned char hidcode = keycode2hidp[code];
-
-	if (hidcode >= 224 && hidcode <= 231)
-		return 1;
-
-	return 0;
-}
-
-static unsigned char mask(unsigned char code)
-{
-	unsigned char hidcode = keycode2hidp[code];
-
-	return 1 << (hidcode - 224);
-}
-
-static int key_up(struct keyboard_state *keyboard, unsigned char code)
-{
-	unsigned char i;
-
-	for (i = 4; i <= keyboard->last_value &&
-			keyboard->value[i] != keycode2hidp[code]; i++)
-		;
-
-	if (i > keyboard->last_value)
-		return -EINVAL;
-
-	keyboard->value[i] = keyboard->value[keyboard->last_value];
-	keyboard->value[keyboard->last_value] = 0;
-	keyboard->last_value--;
-
-	return 0;
-}
-
-static int key_down(struct keyboard_state *keyboard, unsigned char code)
-{
-	int i;
-	unsigned char keycode;
-
-	keycode = keycode2hidp[code];
-	for (i = 4; i <= keyboard->last_value; i++)
-		if (keyboard->value[i] == keycode)
-			return 0;
-
-	if (keyboard->last_value == HIDP_KEYB_SIZE - 1)
-		return -EPERM;
-
-	keyboard->last_value++;
-	keyboard->value[keyboard->last_value] = keycode;
-
-	return 0;
-}
-
-static DBusMessage *phantom_state(GIOChannel *chan,
-		struct keyboard_state *keyboard, DBusMessage *msg)
-{
-	int fd, err;
-	unsigned char value[10];
-
-	value[0] = 0xa1;
-	value[1] = 0x01;
-	value[2] = value[3] = 0;
-
-	/* phantom state */
-	memset(&value[4], 1, 6);
-
-	if (chan == NULL)
-		return btd_error_not_connected(msg);
-
-	fd = g_io_channel_unix_get_fd(chan);
-
-	err = write(fd, value, HIDP_KEYB_SIZE);
-	if (err < 0)
-		return btd_error_not_connected(msg);
-
-	return NULL;
-}
-
-static DBusMessage *send_report(GIOChannel *chan,
-		struct keyboard_state *keyboard, DBusMessage *msg)
-{
-	int fd, err;
-
-	if (chan == NULL)
-		return btd_error_not_connected(msg);;
-
-	fd = g_io_channel_unix_get_fd(chan);
-
-	err = write(fd, keyboard->value, HIDP_KEYB_SIZE);
-	if (err < 0)
-		return btd_error_not_connected(msg);
-
-	return NULL;
-}
-
-static DBusMessage *keyboard_event(GIOChannel *chan, DBusMessage *msg,
-					struct keyboard_state *keyboard,
-					unsigned char code,
-					char value)
-{
-	DBusMessage *ret_msg;
-	int err = 0;
-
-	if (is_control(code)) {
-
-		if (value)
-			keyboard->value[2] |= mask(code);
-		else
-			keyboard->value[2] &= ~mask(code);
-
-	} else {
-
-		if (value)
-			err = key_down(keyboard, code);
-		else
-			err = key_up(keyboard, code);
-	}
-
-	if (err < 0) {
-
-		ret_msg = phantom_state(chan, keyboard, msg);
-
-		if (ret_msg)
-			return ret_msg;
-
-		return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-	}
-
-	ret_msg = send_report(chan, keyboard, msg);
-
-	if (ret_msg)
-		return ret_msg;
-
-	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
-}
-
 static DBusMessage *send_event(DBusConnection *conn,
 		DBusMessage *msg, void *data)
 {
-	DBusMessageIter iter;
-	char mode, value;
-	unsigned int code;
-	struct adapter_data *adapt = data;
-	struct device_data *dev = adapt->dev;
-
-	if (!dbus_message_iter_init(msg, &iter))
-			return btd_error_invalid_args(msg);
-
-	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BYTE)
-		return btd_error_invalid_args(msg);
-
-	dbus_message_iter_get_basic(&iter, &mode);
-	dbus_message_iter_next(&iter);
-
-	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT16)
-		return btd_error_invalid_args(msg);
-
-	dbus_message_iter_get_basic(&iter, &code);
-	dbus_message_iter_next(&iter);
-
-	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BYTE)
-		return btd_error_invalid_args(msg);
-
-	dbus_message_iter_get_basic(&iter, &value);
-
-	if (dev->intr == NULL)
-		return btd_error_not_connected(msg);
-
-	if (mode == EV_KEY) /* keboard */
-		return keyboard_event(dev->intr, msg,
-					&(dev->keyboard),
-					(unsigned char) code, value);
-
-	if (mode == EV_REL) /*	mouse */
-		return mouse_event(dev->intr, msg,
-					&(dev->mouse), code, value);
-
 	return btd_error_failed(msg, "Invalid profile mode");
 }
 
@@ -736,177 +421,19 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 	return FALSE;
 }
 
-static void interrupt_connect_cb(GIOChannel *chan, GError *conn_err,
-					void *data)
-{
-	unsigned int w;
-	func_ptr reg_interface;
-	struct user_data *info = data;
-	struct adapter_data *adapt = info->adapt;
-	struct device_data *dev = adapt->dev;
 
-	if (conn_err) {
-		error("%s", conn_err->message);
-		goto failed;
-	}
 
-	/* Connect */
-	if (info->func != NULL) {
-		reg_interface = info->func;
-		btd_debug("Registering device");
 
-		if ((*reg_interface)(adapt) < 0)
-			goto failed;
-
-	/* Reconnect */
-	} else {
-		g_dbus_emit_signal(connection,  dev->input_path,
-					GENERIC_INPUT_DEVICE, "Reconnected",
-					DBUS_TYPE_INVALID);
-	}
-
-	adapt->pending = 0;
-
-	w = g_io_add_watch(dev->intr, G_IO_HUP | G_IO_ERR,
-				channel_listener, dev);
-	dev->intr_watch = w;
-
-	g_free(info);
-
-	return;
-
-failed:
-	g_free(info);
-	info = NULL;
-	g_io_channel_unref(dev->intr);
-	dev->intr = NULL;
-
-	if (dev->ctrl != NULL) {
-		g_io_channel_unref(dev->ctrl);
-		dev->ctrl = NULL;
-	}
-}
-
-static void control_connect_cb(GIOChannel *chan, GError *conn_err,
-					void *data)
-{
-	GIOChannel *io;
-	GError *err;
-	bdaddr_t src;
-	struct user_data *info = data;
-	struct adapter_data *adapt = info->adapt;
-	struct device_data *dev = adapt->dev;
-
-	if (conn_err) {
-		error("%s", conn_err->message);
-		goto failed;
-	}
-
-	adapter_get_address(adapt->adapter, &src);
-
-	io = bt_io_connect(BT_IO_L2CAP, interrupt_connect_cb, data,
-				NULL, &err,
-				BT_IO_OPT_SOURCE_BDADDR, &src,
-				BT_IO_OPT_DEST_BDADDR, &dev->dst,
-				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_INTR,
-				BT_IO_OPT_INVALID);
-
-	if (io == NULL) {
-		error("%s", err->message);
-		g_error_free(err);
-		goto failed;
-	}
-
-	dev->intr = io;
-
-	return;
-
-failed:
-	g_free(info);
-	info = NULL;
-	g_io_channel_unref(dev->ctrl);
-	dev->ctrl = NULL;
-}
 
 static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 					gpointer data)
 {
-	GError *err = NULL;
-	GIOChannel *io;
-	bdaddr_t src;
-	struct adapter_data *adapt = data;
-	struct device_data *dev = adapt->dev;
-	struct user_data *info;
-
-	if (adapt->pending)
-		return btd_error_in_progress(msg);
-
-	if (dev->intr != NULL)
-		return btd_error_already_connected(msg);
-
-	info = g_try_new(struct user_data, 1);
-	if (info == NULL)
-		return btd_error_failed(msg, strerror(-ENOMEM));
-
-	info->adapt = adapt;
-	info->func = NULL;
-
-	adapter_get_address(adapt->adapter, &src);
-
-	io = bt_io_connect(BT_IO_L2CAP, control_connect_cb, info,
-				NULL, &err,
-				BT_IO_OPT_SOURCE_BDADDR, &src,
-				BT_IO_OPT_DEST_BDADDR, &(dev->dst),
-				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_CTRL,
-				BT_IO_OPT_INVALID);
-
-	/* TODO: treat plug failed even with errors from cb */
-	if (err != NULL)
-		error("%s", err->message);
-
-	if (io == NULL) {
-		if (info != NULL)
-			g_free(info);
-
-		return btd_error_failed(msg, "Failed to plug the device");
-	}
-
-	dev->ctrl = io;
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
 static DBusMessage *disconnect_device(DBusConnection *conn, DBusMessage *msg,
 					gpointer data)
 {
-	struct adapter_data *adapt = data;
-	struct device_data *dev = adapt->dev;
-
-	if (dev->intr != NULL) {
-		g_io_channel_shutdown(dev->intr, TRUE, NULL);
-		g_io_channel_unref(dev->intr);
-		dev->intr = NULL;
-
-		g_source_remove(dev->intr_watch);
-	}
-
-	if (dev->ctrl != NULL) {
-		g_io_channel_shutdown(dev->ctrl, TRUE, NULL);
-		g_io_channel_unref(dev->ctrl);
-		dev->ctrl = NULL;
-	}
-
-	g_dbus_unregister_interface(conn, dev->input_path,
-					GENERIC_INPUT_DEVICE);
-
-	if (dev->input_path != NULL) {
-		g_free(dev->input_path);
-		dev->input_path = NULL;
-	}
-
-	g_dbus_emit_signal(connection, adapter_get_path(adapt->adapter),
-				GENERIC_HID_INTERFACE, "DeviceReleased",
-				DBUS_TYPE_INVALID);
-
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
@@ -947,7 +474,6 @@ static int register_input_device(struct adapter_data *adapt)
 					adapt->adapter);
 
 	initiate_keyboard(&dev->keyboard);
-	initiate_mouse(&dev->mouse);
 
 	btd_debug("input path is %s", dev->input_path);
 
@@ -973,62 +499,6 @@ static int register_input_device(struct adapter_data *adapt)
 static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 					gpointer data)
 {
-	GError *err = NULL;
-	GIOChannel *io;
-	DBusMessageIter iter;
-	char *str, addr[18];
-	bdaddr_t src;
-	struct adapter_data *adapt = data;
-	struct device_data *dev = adapt->dev;
-	struct user_data *info;
-
-	if (adapt->pending)
-		return btd_error_in_progress(msg);
-
-	if (dev->input_path != NULL)
-		return btd_error_already_connected(msg);
-
-		info = g_try_new(struct user_data, 1);
-
-	if (!dbus_message_iter_init(msg, &iter))
-			return btd_error_invalid_args(msg);
-
-	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-		return btd_error_invalid_args(msg);
-
-	if (info == NULL)
-		return btd_error_failed(msg, strerror(-ENOMEM));
-
-	info->adapt = adapt;
-	info->func = register_input_device;
-
-	dbus_message_iter_get_basic(&iter, &str);
-
-	strcpy(addr, str);
-	str2ba(addr, &(dev->dst));
-
-	btd_debug("Request connection to %s", addr);
-
-	adapter_get_address(adapt->adapter, &src);
-
-	io = bt_io_connect(BT_IO_L2CAP, control_connect_cb, info,
-				NULL, &err,
-				BT_IO_OPT_SOURCE_BDADDR, &src,
-				BT_IO_OPT_DEST_BDADDR, &(dev->dst),
-				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_CTRL,
-				BT_IO_OPT_INVALID);
-
-	if (err != NULL)
-		error("%s", err->message);
-
-	if (io == NULL) {
-		if (info != NULL)
-			g_free(info);
-
-		return btd_error_failed(msg, "Failed to plug the device");
-	}
-
-	dev->ctrl = io;
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
