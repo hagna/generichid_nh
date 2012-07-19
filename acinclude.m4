@@ -167,6 +167,7 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 	fortify_enable=yes
 	pie_enable=yes
 	sndfile_enable=${sndfile_found}
+	generichid_enable=yes
 	usb_enable=${usb_found}
 	gstreamer_enable=${gstreamer_found}
 	audio_enable=yes
@@ -224,6 +225,10 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 
 	AC_ARG_ENABLE(service, AC_HELP_STRING([--disable-service], [disable service plugin]), [
 		service_enable=${enableval}
+	])
+
+	AC_ARG_ENABLE(generichid, AC_HELP_STRING([--enable-generichid], [enable generichid plugin]), [
+		generichid_enable=${enableval}
 	])
 
 	AC_ARG_ENABLE(health, AC_HELP_STRING([--enable-health], [enable health plugin]), [
@@ -320,6 +325,7 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 	fi
 
 	AM_CONDITIONAL(SNDFILE, test "${sndfile_enable}" = "yes" && test "${sndfile_found}" = "yes")
+	AM_CONDITIONAL(GENERICHIDPLUGIN, test "${generichid_enable}" = "yes")
 	AM_CONDITIONAL(USB, test "${usb_enable}" = "yes" && test "${usb_found}" = "yes")
 	AM_CONDITIONAL(SBC, test "${gstreamer_enable}" = "yes" || test "${test_enable}" = "yes")
 	AM_CONDITIONAL(GSTREAMER, test "${gstreamer_enable}" = "yes" && test "${gstreamer_found}" = "yes")

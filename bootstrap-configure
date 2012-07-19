@@ -21,6 +21,7 @@ fi
 		--enable-bccmd \
 		--enable-dfutool \
 		--enable-hid2hci \
+		--enable-generichid \
 		--enable-test \
 		--enable-cups \
 		--enable-dbusoob \
