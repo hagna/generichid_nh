@@ -139,7 +139,6 @@ struct user_data {
 	func_ptr func;
 };
 
-
 static void add_lang_attr(sdp_record_t *r)
 {
 	sdp_lang_attr_t base_lang;
@@ -354,8 +353,6 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 
 	return 0;
 }
-
-
 
 static int mouse_action(GIOChannel *chan, unsigned char btn,
 				unsigned char mov_x, unsigned char mov_y,
@@ -684,7 +681,6 @@ static DBusMessage *send_event(DBusConnection *conn,
 	return btd_error_failed(msg, "Invalid profile mode");
 }
 
-
 static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
 {
@@ -712,7 +708,6 @@ static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
     }
 	return TRUE;
 }
-
 
 static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
@@ -1031,7 +1026,6 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 	dev->ctrl = io;
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
-
 
 static const GDBusSignalTable ghid_adapter_signals[] = {
 	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
