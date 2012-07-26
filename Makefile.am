@@ -192,7 +192,7 @@ endif
 
 if GENERICHIDPLUGIN
 builtin_modules += generichid
-builtin_sources += input/generichid.c
+builtin_sources += profiles/input/generichid.c
 
 endif
 
