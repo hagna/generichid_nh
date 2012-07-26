@@ -185,17 +185,12 @@ if HOGPLUGIN
 builtin_modules += hog
 builtin_sources += profiles/input/hog_manager.c profiles/input/hog_device.h \
 			profiles/input/hog_device.c profiles/input/uhid_copy.h
-
 endif
-
-
 
 if GENERICHIDPLUGIN
 builtin_modules += generichid
 builtin_sources += profiles/input/generichid.c
-
 endif
-
 
 if NETWORKPLUGIN
 builtin_modules += network
