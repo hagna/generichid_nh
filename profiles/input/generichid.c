@@ -357,7 +357,6 @@ static void register_interface(const char *path, struct adapter_data *adapt)
 
 }
 
-
 static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 {
 	uint16_t psm;
