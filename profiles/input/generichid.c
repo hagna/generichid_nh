@@ -35,6 +35,8 @@
 #include <dbus/dbus.h>
 #include "plugin.h"
 #include "adapter.h"
+#include "btio.h"
+#include "../profiles/input/device.h"
 
 #define GENERIC_HID_INTERFACE "org.bluez.GenericHID"
 
@@ -43,12 +45,15 @@ static GSList *adapters = NULL;
 static DBusConnection *connection;
 
 struct device_data {
+	GIOChannel *ctrl;
 };
 
 struct adapter_data {
 	struct btd_adapter *adapter;
 	struct device_data *dev;
 	uint32_t sdp_record_handle;
+	GIOChannel *listen_ctrl;
+	GIOChannel *listen_intr;
 	int pending;
 	char active;
 };
@@ -292,6 +297,48 @@ static void register_interface(const char *path, struct adapter_data *adapt)
 
 }
 
+static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
+{
+}
+
+static int adapt_start(struct adapter_data *adapt)
+{
+	GError *err = NULL;
+	bdaddr_t src;
+	struct device_data *dev = adapt->dev;
+
+	adapter_get_address(adapt->adapter, &src);
+
+	adapt->listen_ctrl = bt_io_listen(BT_IO_L2CAP, confirm_event_cb,
+						NULL, adapt, NULL, &err,
+						BT_IO_OPT_SOURCE_BDADDR, &src,
+						BT_IO_OPT_PSM, L2CAP_PSM_HIDP_CTRL,
+						BT_IO_OPT_INVALID);
+	if (!adapt->listen_ctrl) {
+		error("Failed to listen on control channel");
+		g_error_free(err);
+		g_free(adapt);
+		return -ENOTCONN;
+	}
+
+	adapt->listen_intr = bt_io_listen(BT_IO_L2CAP, confirm_event_cb,
+						NULL, adapt, NULL, &err,
+						BT_IO_OPT_SOURCE_BDADDR, &src,
+						BT_IO_OPT_PSM, L2CAP_PSM_HIDP_INTR,
+						BT_IO_OPT_INVALID);
+	if (!adapt->listen_intr) {
+		error("Failed to listen on interrupt channel");
+		/* TODO: fix this */
+		g_io_channel_unref(dev->ctrl);
+		dev->ctrl = NULL;
+		g_error_free(err);
+		g_free(adapt);
+		return -ENOTCONN;
+	}
+
+	return 0;
+}
+
 static int ghid_probe(struct btd_adapter *adapter)
 {
 	struct adapter_data *adapt;
@@ -315,6 +362,9 @@ static int ghid_probe(struct btd_adapter *adapter)
 		g_free(adapt);
 		return -1;
 	}
+
+    if (adapt_start(adapt) < 0)
+		return -ENOTCONN;
 
 	register_interface(adapter_get_path(adapter), adapt);
 
