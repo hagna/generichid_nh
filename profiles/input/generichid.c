@@ -286,6 +286,62 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 	return 0;
 }
 
+static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
+					gpointer data)
+{
+    unsigned char b;
+    unsigned char ok;
+	struct device_data *dev = data;
+    int fd;
+    int outfd;
+    int err;
+    b = 0;
+    ok = 0;
+
+    fd = g_io_channel_unix_get_fd(chan);
+    err = read(fd, &b, 1);
+    if (err < 0)
+        error("Error %d: failed to read set_protocol/set_idle", err);
+    if ((b == 0x71) || (b == 0x90)) {
+        // set_protocol(report) or set_idle
+        outfd = g_io_channel_unix_get_fd(dev->intr);
+        err = write(outfd, &ok, 1);
+        if (err < 0)
+            error("Error %d: failed to acknowledge set_protocol/set_idle", err);
+    } else {
+        btd_debug("possibly discarding important protocol data %x", b);
+    }
+	return TRUE;
+}
+
+static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
+					gpointer data)
+{
+	struct device_data *dev = data;
+
+	if (dev->intr != NULL) {
+		g_io_channel_unref(dev->intr);
+		dev->intr = NULL;
+	}
+
+	if (dev->ctrl != NULL) {
+		g_io_channel_unref(dev->ctrl);
+		dev->ctrl = NULL;
+	}
+
+	g_dbus_emit_signal(connection,  dev->input_path,
+				GENERIC_INPUT_DEVICE, "Disconnected",
+				DBUS_TYPE_INVALID);
+    btd_debug("Channel listener");
+	return FALSE;
+}
+
+static void control_connect_cb(GIOChannel *chan, GError *conn_err,
+					void *data)
+{
+
+}
+
 static int register_input_device(struct adapter_data *adapt)
 {
   return 0;
@@ -353,86 +409,6 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
-static const GDBusSignalTable ghid_adapter_signals[] = {
-	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
-	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
-	{ }
-};
-
-static const GDBusMethodTable ghid_adapter_methods[] = {
-	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
-	{ }
-};
-
-static void register_interface(const char *path, struct adapter_data *adapt)
-{
-	if (g_dbus_register_interface(connection, path, GENERIC_HID_INTERFACE,
-					ghid_adapter_methods, ghid_adapter_signals,
-					NULL, adapt, NULL) == FALSE) {
-		error("D-Bus failed to register %s interface",
-				GENERIC_HID_INTERFACE);
-		return;
-	}
-
-	btd_debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
-
-}
-
-static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
-					gpointer data)
-{
-    unsigned char b;
-    unsigned char ok;
-	struct device_data *dev = data;
-    int fd;
-    int outfd;
-    int err;
-    b = 0;
-    ok = 0;
-
-    fd = g_io_channel_unix_get_fd(chan);
-    err = read(fd, &b, 1);
-    if (err < 0)
-        error("Error %d: failed to read set_protocol/set_idle", err);
-    if ((b == 0x71) || (b == 0x90)) {
-        // set_protocol(report) or set_idle
-        outfd = g_io_channel_unix_get_fd(dev->intr);
-        err = write(outfd, &ok, 1);
-        if (err < 0)
-            error("Error %d: failed to acknowledge set_protocol/set_idle", err);
-    } else {
-        btd_debug("possibly discarding important protocol data %x", b);
-    }
-	return TRUE;
-}
-
-static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
-					gpointer data)
-{
-	struct device_data *dev = data;
-
-	if (dev->intr != NULL) {
-		g_io_channel_unref(dev->intr);
-		dev->intr = NULL;
-	}
-
-	if (dev->ctrl != NULL) {
-		g_io_channel_unref(dev->ctrl);
-		dev->ctrl = NULL;
-	}
-
-	g_dbus_emit_signal(connection,  dev->input_path,
-				GENERIC_INPUT_DEVICE, "Disconnected",
-				DBUS_TYPE_INVALID);
-    btd_debug("Channel listener");
-	return FALSE;
-}
-
-static void control_connect_cb(GIOChannel *chan, GError *conn_err,
-					void *data)
-{
-
-}
 
 static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 {
@@ -504,6 +480,32 @@ failed:
 		dev->ctrl = NULL;
 	}
 }
+
+static const GDBusSignalTable ghid_adapter_signals[] = {
+	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
+	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
+	{ }
+};
+
+static const GDBusMethodTable ghid_adapter_methods[] = {
+	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
+	{ }
+};
+
+static void register_interface(const char *path, struct adapter_data *adapt)
+{
+	if (g_dbus_register_interface(connection, path, GENERIC_HID_INTERFACE,
+					ghid_adapter_methods, ghid_adapter_signals,
+					NULL, adapt, NULL) == FALSE) {
+		error("D-Bus failed to register %s interface",
+				GENERIC_HID_INTERFACE);
+		return;
+	}
+
+	btd_debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
+
+}
+
 
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
