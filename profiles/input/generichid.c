@@ -278,6 +278,11 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 	return 0;
 }
 
+static int register_input_device(struct adapter_data *adapt)
+{
+  return 0;
+}
+
 static const GDBusSignalTable ghid_adapter_signals[] = {
 	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
 	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
@@ -350,11 +355,6 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 				DBUS_TYPE_INVALID);
     btd_debug("Channel listener");
 	return FALSE;
-}
-
-static int register_input_device(struct adapter_data *adapt)
-{
-  return 0;
 }
 
 static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
