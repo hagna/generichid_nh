@@ -39,6 +39,7 @@
 #include "../profiles/input/device.h"
 
 #define GENERIC_HID_INTERFACE "org.bluez.GenericHID"
+#define GENERIC_INPUT_DEVICE  "org.bluez.GenericHIDInput"
 
 static GSList *adapters = NULL;
 
@@ -46,6 +47,10 @@ static DBusConnection *connection;
 
 struct device_data {
 	GIOChannel *ctrl;
+	GIOChannel *intr;
+	bdaddr_t dst;
+	unsigned int intr_watch;
+	char *input_path;
 };
 
 struct adapter_data {
@@ -297,8 +302,143 @@ static void register_interface(const char *path, struct adapter_data *adapt)
 
 }
 
+static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
+					gpointer data)
+{
+	struct device_data *dev = data;
+
+	if (dev->intr != NULL) {
+		g_io_channel_unref(dev->intr);
+		dev->intr = NULL;
+	}
+
+	if (dev->ctrl != NULL) {
+		g_io_channel_unref(dev->ctrl);
+		dev->ctrl = NULL;
+	}
+
+	g_dbus_emit_signal(connection,  dev->input_path,
+				GENERIC_INPUT_DEVICE, "Disconnected",
+				DBUS_TYPE_INVALID);
+    btd_debug("Channel listener");
+	return FALSE;
+}
+
+static int register_input_device(struct adapter_data *adapt)
+{
+  return 0;
+}
+
+static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
+{
+	uint16_t psm;
+	bdaddr_t dst;
+	GError *gerr = NULL;
+	unsigned int w;
+	int ret;
+	struct adapter_data *adapt = data;
+	struct device_data *dev = adapt->dev;
+
+	if (err)
+		btd_debug("%s\n", err->message);
+
+	bt_io_get(chan, BT_IO_L2CAP, &gerr,
+			BT_IO_OPT_DEST_BDADDR, &dst,
+			BT_IO_OPT_PSM, &psm,
+			BT_IO_OPT_INVALID);
+
+	if (gerr) {
+		btd_debug("Error on PSM %d: %s\n", psm, gerr->message);
+		g_error_free(gerr);
+		g_io_channel_shutdown(chan, TRUE, NULL);
+		return;
+	}
+
+	btd_debug("Accept on PSM %d\n", psm);
+
+	if (psm == 17) {
+		dev->ctrl = g_io_channel_ref(chan);
+		return;
+	}
+
+	dev->intr = g_io_channel_ref(chan);
+
+	if (dev->input_path == NULL) {
+
+		ret = register_input_device(adapt);
+
+		if (ret < 0)
+			goto failed;
+
+		bacpy(&dev->dst, &dst);
+
+	} else {
+		g_dbus_emit_signal(connection,  dev->input_path,
+					GENERIC_INPUT_DEVICE, "Reconnected",
+					DBUS_TYPE_INVALID);
+	}
+
+	w = g_io_add_watch(dev->intr, G_IO_HUP | G_IO_ERR,
+				channel_listener, dev);
+	dev->intr_watch = w;
+	adapt->pending = 0;
+
+	return;
+
+failed:
+	if (dev->intr != NULL) {
+		g_io_channel_shutdown(dev->intr, TRUE, NULL);
+		g_io_channel_unref(dev->intr);
+		dev->intr = NULL;
+	}
+
+	if (dev->ctrl != NULL) {
+		g_io_channel_shutdown(dev->ctrl, TRUE, NULL);
+		g_io_channel_unref(dev->ctrl);
+		dev->ctrl = NULL;
+	}
+}
+
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
+    uint16_t psm;
+	GError *gerr = NULL;
+	bdaddr_t dst;
+	struct adapter_data *adapt = data;
+	struct device_data *dev = adapt->dev;
+
+	if (err) {
+		error("%s\n", err->message);
+		return;
+	}
+
+	bt_io_get(chan, BT_IO_L2CAP, &gerr,
+			BT_IO_OPT_DEST_BDADDR, &dst,
+			BT_IO_OPT_PSM, &psm,
+			BT_IO_OPT_INVALID);
+	if (gerr) {
+		error("%s on PSM %d\n", gerr->message, psm);
+		g_error_free(gerr);
+		g_io_channel_shutdown(chan, TRUE, NULL);
+		return;
+	}
+
+	if (dev->input_path != NULL &&
+			(bacmp(&(dev->dst), &dst) != 0 ||
+			dev->intr != NULL)) {
+
+		btd_debug("Incoming request blocked due to existing input device");
+		g_io_channel_shutdown(chan, TRUE, NULL);
+		return;
+	}
+
+	btd_debug("Incoming connection on PSM number %d", psm);
+
+	if (psm == 17)
+		adapt->pending = 1;
+
+	if (!bt_io_accept(chan, connect_cb, data, NULL, NULL))
+		btd_debug("Can not accept connection on psm %d", psm);
 }
 
 static int adapt_start(struct adapter_data *adapt)
