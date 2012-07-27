@@ -409,6 +409,30 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
+static const GDBusSignalTable ghid_adapter_signals[] = {
+	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
+	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
+	{ }
+};
+
+static const GDBusMethodTable ghid_adapter_methods[] = {
+	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
+	{ }
+};
+
+static void register_interface(const char *path, struct adapter_data *adapt)
+{
+	if (g_dbus_register_interface(connection, path, GENERIC_HID_INTERFACE,
+					ghid_adapter_methods, ghid_adapter_signals,
+					NULL, adapt, NULL) == FALSE) {
+		error("D-Bus failed to register %s interface",
+				GENERIC_HID_INTERFACE);
+		return;
+	}
+
+	btd_debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
+
+}
 
 static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 {
@@ -480,32 +504,6 @@ failed:
 		dev->ctrl = NULL;
 	}
 }
-
-static const GDBusSignalTable ghid_adapter_signals[] = {
-	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
-	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
-	{ }
-};
-
-static const GDBusMethodTable ghid_adapter_methods[] = {
-	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
-	{ }
-};
-
-static void register_interface(const char *path, struct adapter_data *adapt)
-{
-	if (g_dbus_register_interface(connection, path, GENERIC_HID_INTERFACE,
-					ghid_adapter_methods, ghid_adapter_signals,
-					NULL, adapt, NULL) == FALSE) {
-		error("D-Bus failed to register %s interface",
-				GENERIC_HID_INTERFACE);
-		return;
-	}
-
-	btd_debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
-
-}
-
 
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
