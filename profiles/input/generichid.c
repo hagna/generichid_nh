@@ -302,6 +302,34 @@ static void register_interface(const char *path, struct adapter_data *adapt)
 
 }
 
+static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
+					gpointer data)
+{
+    unsigned char b;
+    unsigned char ok;
+	struct device_data *dev = data;
+    int fd;
+    int outfd;
+    int err;
+    b = 0;
+    ok = 0;
+
+    fd = g_io_channel_unix_get_fd(chan);
+    err = read(fd, &b, 1);
+    if (err < 0)
+        error("Error %d: failed to read set_protocol/set_idle", err);
+    if ((b == 0x71) || (b == 0x90)) {
+        // set_protocol(report) or set_idle
+        outfd = g_io_channel_unix_get_fd(dev->intr);
+        err = write(outfd, &ok, 1);
+        if (err < 0)
+            error("Error %d: failed to acknowledge set_protocol/set_idle", err);
+    } else {
+        btd_debug("possibly discarding important protocol data %x", b);
+    }
+	return TRUE;
+}
+
 static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
 {
@@ -381,6 +409,7 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 	w = g_io_add_watch(dev->intr, G_IO_HUP | G_IO_ERR,
 				channel_listener, dev);
 	dev->intr_watch = w;
+	g_io_add_watch(dev->ctrl, G_IO_IN, set_protocol_listener, dev);
 	adapt->pending = 0;
 
 	return;
