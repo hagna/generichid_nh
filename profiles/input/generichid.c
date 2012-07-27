@@ -32,10 +32,74 @@
 #include "plugin.h"
 #include "adapter.h"
 
+#define GENERIC_HID_INTERFACE "org.bluez.GenericHID"
+
+static GSList *adapters = NULL;
+
 static DBusConnection *connection;
+
+struct device_data {
+};
+
+struct adapter_data {
+	struct btd_adapter *adapter;
+	struct device_data *dev;
+	int pending;
+	char active;
+};
+
+static const GDBusSignalTable ghid_adapter_signals[] = {
+	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
+	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
+	{ }
+};
+
+static const GDBusMethodTable ghid_adapter_methods[] = {
+	{ }
+};
+
+static void register_interface(const char *path, struct adapter_data *adapt)
+{
+	if (g_dbus_register_interface(connection, path, GENERIC_HID_INTERFACE,
+					ghid_adapter_methods, ghid_adapter_signals,
+					NULL, adapt, NULL) == FALSE) {
+		error("D-Bus failed to register %s interface",
+				GENERIC_HID_INTERFACE);
+		return;
+	}
+
+	btd_debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
+
+}
+
+static int ghid_probe(struct btd_adapter *adapter)
+{
+	struct adapter_data *adapt;
+
+	adapt = g_try_new0(struct adapter_data, 1);
+	if (adapt == NULL)
+		return -ENOMEM;
+
+	adapt->dev = g_try_new0(struct device_data, 1);
+	if (adapt->dev == NULL) {
+		g_free(adapt);
+		return -ENOMEM;
+	}
+
+	adapt->pending = 0;
+	adapt->adapter = adapter;
+	adapt->active = 0;
+
+	register_interface(adapter_get_path(adapter), adapt);
+
+	adapters = g_slist_append(adapters, adapt);
+
+	return 0;
+}
 
 static struct btd_adapter_driver ghid_driver = {
 	.name	= "generic-hid",
+	.probe	= ghid_probe,
 };
 
 static int generic_hid_init(void)
