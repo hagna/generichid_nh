@@ -428,6 +428,12 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 	return FALSE;
 }
 
+static void control_connect_cb(GIOChannel *chan, GError *conn_err,
+					void *data)
+{
+
+}
+
 static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 {
 	uint16_t psm;
