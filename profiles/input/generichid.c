@@ -278,35 +278,6 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 	return 0;
 }
 
-static int register_input_device(struct adapter_data *adapt)
-{
-  return 0;
-}
-
-static const GDBusSignalTable ghid_adapter_signals[] = {
-	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
-	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
-	{ }
-};
-
-static const GDBusMethodTable ghid_adapter_methods[] = {
-	{ }
-};
-
-static void register_interface(const char *path, struct adapter_data *adapt)
-{
-	if (g_dbus_register_interface(connection, path, GENERIC_HID_INTERFACE,
-					ghid_adapter_methods, ghid_adapter_signals,
-					NULL, adapt, NULL) == FALSE) {
-		error("D-Bus failed to register %s interface",
-				GENERIC_HID_INTERFACE);
-		return;
-	}
-
-	btd_debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
-
-}
-
 static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
 {
@@ -356,6 +327,36 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
     btd_debug("Channel listener");
 	return FALSE;
 }
+
+static int register_input_device(struct adapter_data *adapt)
+{
+  return 0;
+}
+
+static const GDBusSignalTable ghid_adapter_signals[] = {
+	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
+	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
+	{ }
+};
+
+static const GDBusMethodTable ghid_adapter_methods[] = {
+	{ }
+};
+
+static void register_interface(const char *path, struct adapter_data *adapt)
+{
+	if (g_dbus_register_interface(connection, path, GENERIC_HID_INTERFACE,
+					ghid_adapter_methods, ghid_adapter_signals,
+					NULL, adapt, NULL) == FALSE) {
+		error("D-Bus failed to register %s interface",
+				GENERIC_HID_INTERFACE);
+		return;
+	}
+
+	btd_debug("Registered interface %s path %s", GENERIC_HID_INTERFACE, path);
+
+}
+
 
 static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 {
