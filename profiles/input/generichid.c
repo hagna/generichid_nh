@@ -35,11 +35,14 @@
 #include <dbus/dbus.h>
 #include "plugin.h"
 #include "adapter.h"
+#include "error.h"
 #include "btio.h"
 #include "../profiles/input/device.h"
 
 #define GENERIC_HID_INTERFACE "org.bluez.GenericHID"
 #define GENERIC_INPUT_DEVICE  "org.bluez.GenericHIDInput"
+
+typedef int (*func_ptr)();
 
 static GSList *adapters = NULL;
 
@@ -61,6 +64,11 @@ struct adapter_data {
 	GIOChannel *listen_intr;
 	int pending;
 	char active;
+};
+
+struct user_data {
+	struct adapter_data *adapt;
+	func_ptr func;
 };
 
 static void add_lang_attr(sdp_record_t *r)
@@ -278,6 +286,73 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 	return 0;
 }
 
+static int register_input_device(struct adapter_data *adapt)
+{
+  return 0;
+}
+
+static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
+					gpointer data)
+{
+	GError *err = NULL;
+	GIOChannel *io;
+	DBusMessageIter iter;
+	char *str, addr[18];
+	bdaddr_t src;
+	struct adapter_data *adapt = data;
+	struct device_data *dev = adapt->dev;
+	struct user_data *info;
+
+	if (adapt->pending)
+		return btd_error_in_progress(msg);
+
+	if (dev->input_path != NULL)
+		return btd_error_already_connected(msg);
+
+		info = g_try_new(struct user_data, 1);
+
+	if (!dbus_message_iter_init(msg, &iter))
+			return btd_error_invalid_args(msg);
+
+	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+		return btd_error_invalid_args(msg);
+
+	if (info == NULL)
+		return btd_error_failed(msg, strerror(-ENOMEM));
+
+	info->adapt = adapt;
+	info->func = register_input_device;
+
+	dbus_message_iter_get_basic(&iter, &str);
+
+	strcpy(addr, str);
+	str2ba(addr, &(dev->dst));
+
+	btd_debug("Request connection to %s", addr);
+
+	adapter_get_address(adapt->adapter, &src);
+
+	io = bt_io_connect(BT_IO_L2CAP, control_connect_cb, info,
+				NULL, &err,
+				BT_IO_OPT_SOURCE_BDADDR, &src,
+				BT_IO_OPT_DEST_BDADDR, &(dev->dst),
+				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_CTRL,
+				BT_IO_OPT_INVALID);
+
+	if (err != NULL)
+		error("%s", err->message);
+
+	if (io == NULL) {
+		if (info != NULL)
+			g_free(info);
+
+		return btd_error_failed(msg, "Failed to plug the device");
+	}
+
+	dev->ctrl = io;
+	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
+}
+
 static const GDBusSignalTable ghid_adapter_signals[] = {
 	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
 	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
@@ -285,6 +360,7 @@ static const GDBusSignalTable ghid_adapter_signals[] = {
 };
 
 static const GDBusMethodTable ghid_adapter_methods[] = {
+	{ GDBUS_METHOD("Connect", GDBUS_ARGS({"path", "s"}), NULL, connect_device) },
 	{ }
 };
 
@@ -350,11 +426,6 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 				DBUS_TYPE_INVALID);
     btd_debug("Channel listener");
 	return FALSE;
-}
-
-static int register_input_device(struct adapter_data *adapt)
-{
-  return 0;
 }
 
 static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
