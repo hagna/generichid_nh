@@ -33,6 +33,8 @@
 
 #include <gdbus.h>
 #include <dbus/dbus.h>
+
+#include "dbus-common.h"
 #include "plugin.h"
 #include "adapter.h"
 #include "error.h"
@@ -42,11 +44,18 @@
 #define GENERIC_HID_INTERFACE "org.bluez.GenericHID"
 #define GENERIC_INPUT_DEVICE  "org.bluez.GenericHIDInput"
 
+#define HIDP_KEYB_SIZE	10
+
 typedef int (*func_ptr)();
 
 static GSList *adapters = NULL;
 
 static DBusConnection *connection;
+
+struct keyboard_state {
+	unsigned char value[HIDP_KEYB_SIZE];
+	unsigned char last_value;
+};
 
 struct device_data {
 	GIOChannel *ctrl;
@@ -54,6 +63,7 @@ struct device_data {
 	bdaddr_t dst;
 	unsigned int intr_watch;
 	char *input_path;
+	struct keyboard_state keyboard;
 };
 
 struct adapter_data {
@@ -286,6 +296,21 @@ static int sdp_keyboard_service(struct adapter_data *adapt)
 	return 0;
 }
 
+static void initiate_keyboard(struct keyboard_state *keyboard)
+{
+	keyboard->value[0] = 0xa1;
+	keyboard->value[1] = 0x01;
+
+	memset(&(keyboard->value[2]), 0, HIDP_KEYB_SIZE - 2);
+
+	/*
+	*	first 4 bytes in value are constant
+	*	keys start at index 4
+	*	last_value = 3 means no keys pressed
+	*/
+	keyboard->last_value = 3;
+}
+
 static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
 {
@@ -342,8 +367,57 @@ static void control_connect_cb(GIOChannel *chan, GError *conn_err,
 
 }
 
+static const GDBusSignalTable ghid_input_device_signals[] = {
+	{ }
+};
+
+static const GDBusMethodTable ghid_input_device_methods[] = {
+	{}
+};
+
+static void generic_input_device_path(char *path, struct btd_adapter *adapter)
+{
+	char *adapt;
+	strcpy(path, "/org/bluez/input");
+
+	/* adding the adapter name */
+	adapt = strrchr(adapter_get_path(adapter), '/');
+	strcat(path, adapt);
+
+	strcat(path, "/device1");
+}
+
 static int register_input_device(struct adapter_data *adapt)
 {
+	struct device_data *dev = adapt->dev;
+
+	dev->input_path = g_try_new0(char, MAX_PATH_LENGTH);
+	if (dev->input_path == NULL)
+		return -ENOMEM;
+
+	generic_input_device_path(dev->input_path,
+					adapt->adapter);
+
+	initiate_keyboard(&dev->keyboard);
+
+	btd_debug("input path is %s", dev->input_path);
+
+	if (g_dbus_register_interface(connection,
+					dev->input_path,
+					GENERIC_INPUT_DEVICE,
+					ghid_input_device_methods,
+					ghid_input_device_signals, NULL,
+					adapt, NULL) == FALSE) {
+		error("D-Bus failed to register %s interface",
+				GENERIC_INPUT_DEVICE);
+		g_free(dev->input_path);
+		return -1;
+	}
+
+	g_dbus_emit_signal(connection,  adapter_get_path(adapt->adapter),
+				GENERIC_HID_INTERFACE, "IncomingConnection",
+				DBUS_TYPE_INVALID);
+
   return 0;
 }
 
