@@ -453,11 +453,60 @@ failed:
 	dev->ctrl = NULL;
 }
 
+static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
+					gpointer data)
+{
+	GError *err = NULL;
+	GIOChannel *io;
+	bdaddr_t src;
+	struct adapter_data *adapt = data;
+	struct device_data *dev = adapt->dev;
+	struct user_data *info;
+
+	if (adapt->pending)
+		return btd_error_in_progress(msg);
+
+	if (dev->intr != NULL)
+		return btd_error_already_connected(msg);
+
+	info = g_try_new(struct user_data, 1);
+	if (info == NULL)
+		return btd_error_failed(msg, strerror(-ENOMEM));
+
+	info->adapt = adapt;
+	info->func = NULL;
+
+	adapter_get_address(adapt->adapter, &src);
+
+	io = bt_io_connect(BT_IO_L2CAP, control_connect_cb, info,
+				NULL, &err,
+				BT_IO_OPT_SOURCE_BDADDR, &src,
+				BT_IO_OPT_DEST_BDADDR, &(dev->dst),
+				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_CTRL,
+				BT_IO_OPT_INVALID);
+
+	/* TODO: treat plug failed even with errors from cb */
+	if (err != NULL)
+		error("%s", err->message);
+
+	if (io == NULL) {
+		if (info != NULL)
+			g_free(info);
+
+		return btd_error_failed(msg, "Failed to plug the device");
+	}
+
+	dev->ctrl = io;
+	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
+}
+
 static const GDBusSignalTable ghid_input_device_signals[] = {
+	{ GDBUS_SIGNAL("Reconnected", NULL)	},
 	{ }
 };
 
 static const GDBusMethodTable ghid_input_device_methods[] = {
+	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
 	{}
 };
 
