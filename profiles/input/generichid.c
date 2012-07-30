@@ -361,10 +361,96 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 	return FALSE;
 }
 
+static void interrupt_connect_cb(GIOChannel *chan, GError *conn_err,
+					void *data)
+{
+	unsigned int w;
+	func_ptr reg_interface;
+	struct user_data *info = data;
+	struct adapter_data *adapt = info->adapt;
+	struct device_data *dev = adapt->dev;
+
+	if (conn_err) {
+		error("%s", conn_err->message);
+		goto failed;
+	}
+
+	/* Connect */
+	if (info->func != NULL) {
+		reg_interface = info->func;
+		btd_debug("Registering device");
+
+		if ((*reg_interface)(adapt) < 0)
+			goto failed;
+
+	/* Reconnect */
+	} else {
+		g_dbus_emit_signal(connection,  dev->input_path,
+					GENERIC_INPUT_DEVICE, "Reconnected",
+					DBUS_TYPE_INVALID);
+	}
+
+	adapt->pending = 0;
+
+	w = g_io_add_watch(dev->intr, G_IO_HUP | G_IO_ERR,
+				channel_listener, dev);
+	dev->intr_watch = w;
+
+	g_free(info);
+
+	return;
+
+failed:
+	g_free(info);
+	info = NULL;
+	g_io_channel_unref(dev->intr);
+	dev->intr = NULL;
+
+	if (dev->ctrl != NULL) {
+		g_io_channel_unref(dev->ctrl);
+		dev->ctrl = NULL;
+	}
+}
+
 static void control_connect_cb(GIOChannel *chan, GError *conn_err,
 					void *data)
 {
+	GIOChannel *io;
+	GError *err;
+	bdaddr_t src;
+	struct user_data *info = data;
+	struct adapter_data *adapt = info->adapt;
+	struct device_data *dev = adapt->dev;
 
+	if (conn_err) {
+		error("%s", conn_err->message);
+		goto failed;
+	}
+
+	adapter_get_address(adapt->adapter, &src);
+
+	io = bt_io_connect(BT_IO_L2CAP, interrupt_connect_cb, data,
+				NULL, &err,
+				BT_IO_OPT_SOURCE_BDADDR, &src,
+				BT_IO_OPT_DEST_BDADDR, &dev->dst,
+				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_INTR,
+				BT_IO_OPT_INVALID);
+
+	if (io == NULL) {
+		error("%s", err->message);
+		g_error_free(err);
+		goto failed;
+	}
+
+	dev->intr = io;
+
+	return;
+
+failed:
+	g_free(info);
+	info = NULL;
+	g_io_channel_unref(dev->ctrl);
+	dev->ctrl = NULL;
 }
 
 static const GDBusSignalTable ghid_input_device_signals[] = {
