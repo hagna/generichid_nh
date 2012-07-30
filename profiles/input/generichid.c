@@ -27,6 +27,7 @@
 #endif
 
 #include <errno.h>
+#include <uinput.h>
 
 #include <bluetooth/sdp.h>
 #include <bluetooth/sdp_lib.h>
@@ -311,6 +312,53 @@ static void initiate_keyboard(struct keyboard_state *keyboard)
 	keyboard->last_value = 3;
 }
 
+static DBusMessage *keyboard_event(GIOChannel *chan, DBusMessage *msg,
+					struct keyboard_state *keyboard,
+					unsigned char code,
+					char value)
+{
+}
+
+static DBusMessage *send_event(DBusConnection *conn,
+		DBusMessage *msg, void *data)
+{
+	DBusMessageIter iter;
+	char mode, value;
+	unsigned int code;
+	struct adapter_data *adapt = data;
+	struct device_data *dev = adapt->dev;
+
+	if (!dbus_message_iter_init(msg, &iter))
+			return btd_error_invalid_args(msg);
+
+	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BYTE)
+		return btd_error_invalid_args(msg);
+
+	dbus_message_iter_get_basic(&iter, &mode);
+	dbus_message_iter_next(&iter);
+
+	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT16)
+		return btd_error_invalid_args(msg);
+
+	dbus_message_iter_get_basic(&iter, &code);
+	dbus_message_iter_next(&iter);
+
+	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BYTE)
+		return btd_error_invalid_args(msg);
+
+	dbus_message_iter_get_basic(&iter, &value);
+
+	if (dev->intr == NULL)
+		return btd_error_not_connected(msg);
+
+	if (mode == EV_KEY) /* keboard */
+		return keyboard_event(dev->intr, msg,
+					&(dev->keyboard),
+					(unsigned char) code, value);
+
+	return btd_error_failed(msg, "Invalid profile mode");
+}
+
 static gboolean set_protocol_listener(GIOChannel *chan, GIOCondition condition,
 					gpointer data)
 {
@@ -500,13 +548,51 @@ static DBusMessage *reconnect_device(DBusConnection *conn, DBusMessage *msg,
 	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 }
 
+static DBusMessage *disconnect_device(DBusConnection *conn, DBusMessage *msg,
+					gpointer data)
+{
+	struct adapter_data *adapt = data;
+	struct device_data *dev = adapt->dev;
+
+	if (dev->intr != NULL) {
+		g_io_channel_shutdown(dev->intr, TRUE, NULL);
+		g_io_channel_unref(dev->intr);
+		dev->intr = NULL;
+
+		g_source_remove(dev->intr_watch);
+	}
+
+	if (dev->ctrl != NULL) {
+		g_io_channel_shutdown(dev->ctrl, TRUE, NULL);
+		g_io_channel_unref(dev->ctrl);
+		dev->ctrl = NULL;
+	}
+
+	g_dbus_unregister_interface(conn, dev->input_path,
+					GENERIC_INPUT_DEVICE);
+
+	if (dev->input_path != NULL) {
+		g_free(dev->input_path);
+		dev->input_path = NULL;
+	}
+
+	g_dbus_emit_signal(connection, adapter_get_path(adapt->adapter),
+				GENERIC_HID_INTERFACE, "DeviceReleased",
+				DBUS_TYPE_INVALID);
+
+	return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
+}
+
 static const GDBusSignalTable ghid_input_device_signals[] = {
 	{ GDBUS_SIGNAL("Reconnected", NULL)	},
+	{ GDBUS_SIGNAL("Disconnected", NULL) },
 	{ }
 };
 
 static const GDBusMethodTable ghid_input_device_methods[] = {
+	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, send_event) },
 	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
+	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device)	},
 	{}
 };
 
