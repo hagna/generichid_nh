@@ -509,7 +509,7 @@ static int register_input_device(struct adapter_data *adapt)
 				GENERIC_HID_INTERFACE, "IncomingConnection",
 				DBUS_TYPE_INVALID);
 
-  return 0;
+	return 0;
 }
 
 static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
