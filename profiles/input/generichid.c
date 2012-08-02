@@ -361,12 +361,6 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 	return FALSE;
 }
 
-static void control_connect_cb(GIOChannel *chan, GError *conn_err,
-					void *data)
-{
-
-}
-
 static const GDBusSignalTable ghid_input_device_signals[] = {
 	{ }
 };
@@ -418,7 +412,7 @@ static int register_input_device(struct adapter_data *adapt)
 				GENERIC_HID_INTERFACE, "IncomingConnection",
 				DBUS_TYPE_INVALID);
 
-  return 0;
+	return 0;
 }
 
 static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
@@ -462,12 +456,12 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 
 	adapter_get_address(adapt->adapter, &src);
 
-	io = bt_io_connect(BT_IO_L2CAP, control_connect_cb, info,
+	io = NULL; /*TODO bt_io_connect(BT_IO_L2CAP, control_connect_cb, info,
 				NULL, &err,
 				BT_IO_OPT_SOURCE_BDADDR, &src,
 				BT_IO_OPT_DEST_BDADDR, &(dev->dst),
 				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_CTRL,
-				BT_IO_OPT_INVALID);
+				BT_IO_OPT_INVALID);*/
 
 	if (err != NULL)
 		error("%s", err->message);
@@ -581,7 +575,7 @@ failed:
 
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
-    uint16_t psm;
+	uint16_t psm;
 	GError *gerr = NULL;
 	bdaddr_t dst;
 	struct adapter_data *adapt = data;
