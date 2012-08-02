@@ -426,7 +426,7 @@ failed:
 
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
-    uint16_t psm;
+	uint16_t psm;
 	GError *gerr = NULL;
 	bdaddr_t dst;
 	struct adapter_data *adapt = data;
