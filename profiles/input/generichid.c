@@ -362,10 +362,15 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 }
 
 static const GDBusSignalTable ghid_input_device_signals[] = {
+	{ GDBUS_SIGNAL("Reconnected", NULL) },
+	{ GDBUS_SIGNAL("Disconnected", NULL) },
 	{ }
 };
 
 static const GDBusMethodTable ghid_input_device_methods[] = {
+	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, NULL /* TODO send_event */) },
+	{ GDBUS_METHOD("Reconnect", NULL, NULL, NULL /* TODO reconnect_device */) },
+	{ GDBUS_METHOD("Disconnect", NULL, NULL, NULL /* TODO disconnect_device */) },
 	{}
 };
 
