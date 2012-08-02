@@ -328,11 +328,6 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 	return FALSE;
 }
 
-static int register_input_device(struct adapter_data *adapt)
-{
-  return 0;
-}
-
 static const GDBusSignalTable ghid_adapter_signals[] = {
 	{ GDBUS_SIGNAL("IncomingConnection", NULL) },
 	{ GDBUS_SIGNAL("DeviceReleased", NULL) },
@@ -393,7 +388,8 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 
 	if (dev->input_path == NULL) {
 
-		ret = register_input_device(adapt);
+		ret = -1;
+        // TODO register_input_device
 
 		if (ret < 0)
 			goto failed;
