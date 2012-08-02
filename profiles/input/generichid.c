@@ -312,13 +312,6 @@ static void initiate_keyboard(struct keyboard_state *keyboard)
 	keyboard->last_value = 3;
 }
 
-static DBusMessage *keyboard_event(GIOChannel *chan, DBusMessage *msg,
-					struct keyboard_state *keyboard,
-					unsigned char code,
-					char value)
-{
-}
-
 static DBusMessage *send_event(DBusConnection *conn,
 		DBusMessage *msg, void *data)
 {
@@ -352,9 +345,9 @@ static DBusMessage *send_event(DBusConnection *conn,
 		return btd_error_not_connected(msg);
 
 	if (mode == EV_KEY) /* keboard */
-		return keyboard_event(dev->intr, msg,
+		return NULL; /*keyboard_event(dev->intr, msg,
 					&(dev->keyboard),
-					(unsigned char) code, value);
+					(unsigned char) code, value);*/
 
 	return btd_error_failed(msg, "Invalid profile mode");
 }
