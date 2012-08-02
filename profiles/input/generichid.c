@@ -797,7 +797,7 @@ static int register_input_device(struct adapter_data *adapt)
 				GENERIC_HID_INTERFACE, "IncomingConnection",
 				DBUS_TYPE_INVALID);
 
-  return 0;
+	return 0;
 }
 
 static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
@@ -887,13 +887,6 @@ static void register_interface(const char *path, struct adapter_data *adapt)
 
 }
 
-static void unregister_interface(const char *path)
-{
-	btd_debug("path %s", path);
-
-	g_dbus_unregister_interface(connection, path, GENERIC_HID_INTERFACE);
-}
-
 static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 {
 	uint16_t psm;
@@ -967,7 +960,7 @@ failed:
 
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
-    uint16_t psm;
+	uint16_t psm;
 	GError *gerr = NULL;
 	bdaddr_t dst;
 	struct adapter_data *adapt = data;
