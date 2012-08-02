@@ -342,11 +342,6 @@ static void control_connect_cb(GIOChannel *chan, GError *conn_err,
 
 }
 
-static int register_input_device(struct adapter_data *adapt)
-{
-  return 0;
-}
-
 static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 					gpointer data)
 {
@@ -470,10 +465,8 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 
 	if (dev->input_path == NULL) {
 
-		ret = register_input_device(adapt);
-
-		if (ret < 0)
-			goto failed;
+		ret = -1;
+                // TODO register_input_device
 
 		bacpy(&dev->dst, &dst);
 
