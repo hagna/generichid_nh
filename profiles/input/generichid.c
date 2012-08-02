@@ -336,12 +336,6 @@ static gboolean channel_listener(GIOChannel *chan, GIOCondition condition,
 	return FALSE;
 }
 
-static void control_connect_cb(GIOChannel *chan, GError *conn_err,
-					void *data)
-{
-
-}
-
 static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 					gpointer data)
 {
@@ -372,7 +366,7 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 		return btd_error_failed(msg, strerror(-ENOMEM));
 
 	info->adapt = adapt;
-	info->func = register_input_device;
+	info->func = NULL; //TODO register_input_device;
 
 	dbus_message_iter_get_basic(&iter, &str);
 
@@ -383,12 +377,12 @@ static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
 
 	adapter_get_address(adapt->adapter, &src);
 
-	io = bt_io_connect(BT_IO_L2CAP, control_connect_cb, info,
+	io = NULL; /*TODO bt_io_connect(BT_IO_L2CAP, control_connect_cb, info,
 				NULL, &err,
 				BT_IO_OPT_SOURCE_BDADDR, &src,
 				BT_IO_OPT_DEST_BDADDR, &(dev->dst),
 				BT_IO_OPT_PSM, L2CAP_PSM_HIDP_CTRL,
-				BT_IO_OPT_INVALID);
+				BT_IO_OPT_INVALID);*/
 
 	if (err != NULL)
 		error("%s", err->message);
