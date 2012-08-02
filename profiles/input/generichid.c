@@ -345,7 +345,7 @@ static DBusMessage *send_event(DBusConnection *conn,
 		return btd_error_not_connected(msg);
 
 	if (mode == EV_KEY) /* keboard */
-		return NULL; /*keyboard_event(dev->intr, msg,
+		return NULL; /*TODO keyboard_event(dev->intr, msg,
 					&(dev->keyboard),
 					(unsigned char) code, value);*/
 
@@ -632,7 +632,7 @@ static int register_input_device(struct adapter_data *adapt)
 				GENERIC_HID_INTERFACE, "IncomingConnection",
 				DBUS_TYPE_INVALID);
 
-  return 0;
+	return 0;
 }
 
 static DBusMessage *connect_device(DBusConnection *conn, DBusMessage *msg,
