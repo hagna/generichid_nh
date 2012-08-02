@@ -339,6 +339,8 @@ static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 	if (psm == 17)
 		adapt->pending = 1;
 
+	/* TODO if (!bt_io_accept(chan, connect_cb, data, NULL, NULL))
+		btd_debug("Can not accept connection on psm %d", psm); */
 }
 
 static int adapt_start(struct adapter_data *adapt)
