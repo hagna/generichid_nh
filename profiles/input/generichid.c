@@ -742,7 +742,7 @@ static DBusMessage *disconnect_device(DBusConnection *conn, DBusMessage *msg,
 }
 
 static const GDBusSignalTable ghid_input_device_signals[] = {
-	{ GDBUS_SIGNAL("Reconnected", NULL)	},
+	{ GDBUS_SIGNAL("Reconnected", NULL) },
 	{ GDBUS_SIGNAL("Disconnected", NULL) },
 	{ }
 };
@@ -750,7 +750,7 @@ static const GDBusSignalTable ghid_input_device_signals[] = {
 static const GDBusMethodTable ghid_input_device_methods[] = {
 	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, send_event) },
 	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
-	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device)	},
+	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device) },
 	{}
 };
 
@@ -1106,68 +1106,9 @@ static int ghid_probe(struct btd_adapter *adapter)
 	return 0;
 }
 
-static void cleanup(struct adapter_data *adapt)
-{
-	adapt_stop(adapt);
-
-	if (adapt->dev != NULL)
-		g_free(adapt->dev);
-
-	if (adapt != NULL)
-		g_free(adapt);
-}
-
-static gint adapter_cmp(gconstpointer con, gconstpointer user_data)
-{
-	const struct adapter_data *adapt = con;
-	const struct btd_adapter *adapter = user_data;
-
-    return (adapter == adapt->adapter); 
-    // why would we have multiple copies of the adapter struct for the same adapter
-	
-    /*return memcmp(adapter, adapt->adapter,
-			sizeof(struct btd_adapter));*/
-}
-
-static void ghid_remove(struct btd_adapter *adapter)
-{
-	struct adapter_data *adapt;
-	struct device_data *dev;
-	GSList *l;
-
-	l = g_slist_find_custom(adapters, adapter, adapter_cmp);
-
-	if (l == NULL)
-		return;
-
-	adapt = l->data;
-	dev = adapt->dev;
-
-	adapters = g_slist_remove(adapters, adapt);
-
-	if (dev->input_path != NULL) {
-		g_dbus_unregister_interface(connection,
-						dev->input_path,
-						GENERIC_INPUT_DEVICE);
-
-		g_dbus_emit_signal(connection,  adapter_get_path(adapter),
-					GENERIC_HID_INTERFACE, "DeviceReleased",
-					DBUS_TYPE_INVALID);
-
-		g_free(dev->input_path);
-
-	}
-
-	remove_record_from_server(adapt->sdp_record_handle);
-	cleanup(adapt);
-
-	unregister_interface(adapter_get_path(adapter));
-}
-
 static struct btd_adapter_driver ghid_driver = {
 	.name	= "generic-hid",
 	.probe	= ghid_probe,
-	.remove	= ghid_remove,
 };
 
 static int generic_hid_init(void)
