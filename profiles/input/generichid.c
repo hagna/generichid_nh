@@ -1038,33 +1038,6 @@ static int adapt_start(struct adapter_data *adapt)
 	return 0;
 }
 
-static void adapt_stop(struct adapter_data *adapt)
-{
-	struct device_data *dev = adapt->dev;
-
-	if (adapt->listen_intr != NULL) {
-		g_io_channel_shutdown(adapt->listen_intr, TRUE, NULL);
-		g_io_channel_unref(adapt->listen_intr);
-	}
-
-	if (adapt->listen_intr != NULL) {
-		g_io_channel_shutdown(adapt->listen_ctrl, TRUE, NULL);
-		g_io_channel_unref(adapt->listen_ctrl);
-	}
-
-	if (dev->intr != NULL) {
-		g_io_channel_shutdown(dev->intr, TRUE, NULL);
-		g_io_channel_unref(dev->intr);
-
-		g_source_remove(dev->intr_watch);
-	}
-
-	if (dev->ctrl != NULL) {
-		g_io_channel_shutdown(dev->ctrl, TRUE, NULL);
-		g_io_channel_unref(dev->ctrl);
-	}
-}
-
 static int ghid_probe(struct btd_adapter *adapter)
 {
 	struct adapter_data *adapt;
