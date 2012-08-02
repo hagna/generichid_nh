@@ -508,7 +508,7 @@ static const GDBusSignalTable ghid_input_device_signals[] = {
 
 static const GDBusMethodTable ghid_input_device_methods[] = {
 	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, NULL /* TODO send_event */) },
-	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device },
+	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
 	{ GDBUS_METHOD("Disconnect", NULL, NULL, NULL /* TODO disconnect_device */) },
 	{}
 };
