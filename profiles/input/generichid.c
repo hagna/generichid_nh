@@ -466,7 +466,10 @@ static void connect_cb(GIOChannel *chan, GError *err, gpointer data)
 	if (dev->input_path == NULL) {
 
 		ret = -1;
-                // TODO register_input_device
+        // TODO register_input_device
+
+		if (ret < 0)
+			goto failed;
 
 		bacpy(&dev->dst, &dst);
 
@@ -500,7 +503,7 @@ failed:
 
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
-    uint16_t psm;
+	uint16_t psm;
 	GError *gerr = NULL;
 	bdaddr_t dst;
 	struct adapter_data *adapt = data;
