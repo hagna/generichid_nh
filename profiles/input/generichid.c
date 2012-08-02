@@ -46,6 +46,10 @@ static DBusConnection *connection;
 
 struct device_data {
 	GIOChannel *ctrl;
+	GIOChannel *intr;
+	bdaddr_t dst;
+	unsigned int intr_watch;
+	char *input_path;
 };
 
 struct adapter_data {
@@ -299,6 +303,42 @@ static void register_interface(const char *path, struct adapter_data *adapt)
 
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
+	uint16_t psm;
+	GError *gerr = NULL;
+	bdaddr_t dst;
+	struct adapter_data *adapt = data;
+	struct device_data *dev = adapt->dev;
+
+	if (err) {
+		error("%s\n", err->message);
+		return;
+	}
+
+	bt_io_get(chan, BT_IO_L2CAP, &gerr,
+			BT_IO_OPT_DEST_BDADDR, &dst,
+			BT_IO_OPT_PSM, &psm,
+			BT_IO_OPT_INVALID);
+	if (gerr) {
+		error("%s on PSM %d\n", gerr->message, psm);
+		g_error_free(gerr);
+		g_io_channel_shutdown(chan, TRUE, NULL);
+		return;
+	}
+
+	if (dev->input_path != NULL &&
+			(bacmp(&(dev->dst), &dst) != 0 ||
+			dev->intr != NULL)) {
+
+		btd_debug("Incoming request blocked due to existing input device");
+		g_io_channel_shutdown(chan, TRUE, NULL);
+		return;
+	}
+
+	btd_debug("Incoming connection on PSM number %d", psm);
+
+	if (psm == 17)
+		adapt->pending = 1;
+
 }
 
 static int adapt_start(struct adapter_data *adapt)
