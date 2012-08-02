@@ -584,7 +584,7 @@ static DBusMessage *disconnect_device(DBusConnection *conn, DBusMessage *msg,
 }
 
 static const GDBusSignalTable ghid_input_device_signals[] = {
-	{ GDBUS_SIGNAL("Reconnected", NULL)	},
+	{ GDBUS_SIGNAL("Reconnected", NULL) },
 	{ GDBUS_SIGNAL("Disconnected", NULL) },
 	{ }
 };
@@ -592,7 +592,7 @@ static const GDBusSignalTable ghid_input_device_signals[] = {
 static const GDBusMethodTable ghid_input_device_methods[] = {
 	{ GDBUS_METHOD("SendEvent", GDBUS_ARGS({"event", "yqy"}), NULL, send_event) },
 	{ GDBUS_METHOD("Reconnect", NULL, NULL, reconnect_device) },
-	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device)	},
+	{ GDBUS_METHOD("Disconnect", NULL, NULL, disconnect_device) },
 	{}
 };
 
@@ -802,7 +802,7 @@ failed:
 
 static void confirm_event_cb(GIOChannel *chan, GError *err, gpointer data)
 {
-    uint16_t psm;
+	uint16_t psm;
 	GError *gerr = NULL;
 	bdaddr_t dst;
 	struct adapter_data *adapt = data;
